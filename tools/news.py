@@ -2,11 +2,11 @@ import requests
 import xml.etree.ElementTree as ET
 
 RSS_FEEDS = [
-    ("E&E News", "https://www.eenews.net/rss/1"),
-    ("S&P Global Energy", "https://www.spglobal.com/commodityinsights/en/rss-feed/energy"),
+    ("EIA Today in Energy", "https://www.eia.gov/rss/todayinenergy.xml"),
+    ("OilPrice.com", "https://oilprice.com/rss/main"),
+    ("Power Magazine", "https://www.powermag.com/feed/"),
+    ("Utility Dive", "https://www.utilitydive.com/feeds/news/"),
 ]
-
-FALLBACK_FEED = "https://rss.app/feeds/energy-news.xml"
 
 def get_energy_news() -> str:
     """Get recent energy industry headlines from public RSS feeds."""
@@ -20,8 +20,10 @@ def get_energy_news() -> str:
             items = root.findall(".//item")[:3]
             for item in items:
                 title = item.findtext("title", "").strip()
+                pub_date = item.findtext("pubDate", "").strip()
                 if title:
-                    headlines.append(f"[{name}] {title}")
+                    date_str = f" ({pub_date})" if pub_date else ""
+                    headlines.append(f"[{name}]{date_str} {title}")
         except Exception:
             continue
 

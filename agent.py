@@ -74,24 +74,33 @@ def run_gridwatch(max_steps: int = 10):
         {"role": "user", "content": "Run the morning grid briefing. Check demand, weather, and news. Give me the risk level and what I need to know right now."}
     ]
     step = 0
+    checkpoint_done = False
 
     while step < max_steps:
         step += 1
         print(f"\n[step {step}] thinking...")
 
-        resp = requests.post(
-            API_URL,
-            headers={"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"},
-            json={"model": MODEL, "messages": messages, "tools": TOOL_SCHEMAS},
-            timeout=60,
-        )
-        resp.raise_for_status()
+        try:
+            resp = requests.post(
+                API_URL,
+                headers={"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"},
+                json={"model": MODEL, "messages": messages, "tools": TOOL_SCHEMAS},
+                timeout=60,
+            )
+            resp.raise_for_status()
+        except requests.RequestException as e:
+            print(f"  ✗ API error: {e}")
+            return "Agent stopped — API error."
+
         message = resp.json()["choices"][0]["message"]
         messages.append(message)
 
         if message.get("tool_calls"):
             for call in message["tool_calls"]:
                 fn_name = call["function"]["name"]
+                if fn_name not in TOOLS:
+                    print(f"  ✗ Unknown tool requested: {fn_name} — skipping")
+                    continue
                 print(f"  → calling {fn_name}...")
                 result = TOOLS[fn_name]()
                 print(f"  ← got {len(result)} chars")
@@ -101,14 +110,15 @@ def run_gridwatch(max_steps: int = 10):
                     "content": result,
                 })
 
-        # human checkpoint — agent flags RED and pauses for confirmation
-        elif message.get("content") and "RED" in message["content"].upper() and "confirm" not in " ".join(m.get("content", "") for m in messages if m.get("role") == "user").lower():
+        # human checkpoint — fires once when agent outputs RED risk
+        elif message.get("content") and "🔴" in message["content"] and not checkpoint_done:
+            checkpoint_done = True
             print("\n" + "="*50)
             print("⚠️  HIGH RISK CONDITIONS DETECTED")
             print("="*50)
             print(message["content"])
             confirm = input("\nShould I escalate this briefing? (yes/no): ").strip().lower()
-            messages.append({"role": "user", "content": f"Analyst response: {confirm}. Finalize the briefing."})
+            messages.append({"role": "user", "content": f"Analyst says: {confirm}. Finalize and output the briefing."})
 
         else:
             print("\n" + "="*50)
