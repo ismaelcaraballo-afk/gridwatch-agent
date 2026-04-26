@@ -4,9 +4,9 @@ import xml.etree.ElementTree as ET
 RSS_FEEDS = [
     ("E&E News", "https://www.eenews.net/rss/1"),
     ("S&P Global Energy", "https://www.spglobal.com/commodityinsights/en/rss-feed/energy"),
+    ("Reuters Energy", "https://feeds.reuters.com/reuters/businessNews"),
+    ("EIA Today in Energy", "https://www.eia.gov/rss/todayinenergy.xml"),
 ]
-
-FALLBACK_FEED = "https://rss.app/feeds/energy-news.xml"
 
 def get_energy_news() -> str:
     """Get recent energy industry headlines from public RSS feeds."""
