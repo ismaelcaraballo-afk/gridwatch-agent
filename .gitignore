@@ -2,3 +2,7 @@
 __pycache__/
 *.pyc
 .venv/
+prompts.py
+tools/grid.py
+tools/weather.py
+tools/news.py
