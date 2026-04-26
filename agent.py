@@ -3,9 +3,18 @@ import requests
 from dotenv import load_dotenv
 
 from prompts import SYSTEM_PROMPT
-from tools.grid import get_grid_demand, get_generation_mix
-from tools.weather import get_weather_alerts, get_weather_forecast
-from tools.news import get_energy_news
+
+USE_STUBS = os.environ.get("USE_STUBS", "false").lower() == "true"
+
+if USE_STUBS:
+    from tools.stubs import get_grid_demand, get_generation_mix
+    from tools.stubs import get_weather_alerts, get_weather_forecast
+    from tools.stubs import get_energy_news
+    print("[STUB MODE] Using fake data — set USE_STUBS=false to use real APIs")
+else:
+    from tools.grid import get_grid_demand, get_generation_mix
+    from tools.weather import get_weather_alerts, get_weather_forecast
+    from tools.news import get_energy_news
 
 load_dotenv()
 

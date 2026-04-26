@@ -46,6 +46,19 @@ EIA_API_KEY=your_eia_key
 
 - **OpenRouter key**: [openrouter.ai](https://openrouter.ai) — free account
 - **EIA key**: [eia.gov/opendata/register.php](https://www.eia.gov/opendata/register.php) — free, instant approval
+- **USE_STUBS**: set to `true` to run with fake data (no API keys needed — useful for testing the agent loop)
+
+## Branching strategy
+
+- `main` — stable only. Do not commit directly to main.
+- Each member works on their own branch: `feature/<your-name>`
+  - `feature/ismael` — agent.py
+  - `feature/michael` — prompts.py
+  - `feature/edwin` — tools/grid.py
+  - `feature/christian` — tools/weather.py
+  - `feature/juan` — tools/news.py
+- When your piece works locally — open a PR to main, tag Ismael to review and merge
+- Pull from main before starting work each day: `git pull origin main`
 
 ## Run it
 
