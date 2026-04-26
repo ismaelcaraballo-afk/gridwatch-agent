@@ -5,4 +5,3 @@ __pycache__/
 prompts.py
 tools/grid.py
 tools/weather.py
-tools/news.py
