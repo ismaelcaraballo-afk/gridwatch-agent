@@ -52,3 +52,20 @@ def get_energy_news() -> str:
         "[OilPrice.com] (Sun, 26 Apr 2026) Natural gas prices spike 18% ahead of eastern seaboard heat event\n"
         "[Power Magazine] (Sat, 25 Apr 2026) Grid operators warn of tight capacity margins through Tuesday"
     )
+
+def get_lmp_prices() -> str:
+    return (
+        "Day-ahead LMP — NYISO zones as of 2026-04-26T14:00 ET:\n"
+        "  N.Y.C.: $187.42/MWh\n"
+        "  LONGIL: $172.18/MWh\n"
+        "  HUD VL: $148.05/MWh\n"
+        "  DUNWOD: $142.91/MWh\n"
+        "  MILLWD: $138.60/MWh\n"
+        "  CAPITL: $121.33/MWh\n"
+        "  CENTRL: $108.74/MWh\n"
+        "  MHK VL: $104.22/MWh\n"
+        "  GENESE: $96.81/MWh\n"
+        "  NORTH: $89.45/MWh\n"
+        "  WEST: $84.10/MWh\n"
+        "  → Zone avg: $126.71/MWh | Spread (max − min): $103.32/MWh"
+    )
