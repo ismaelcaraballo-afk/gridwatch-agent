@@ -1,3 +1,4 @@
+import json
 import os
 import requests
 from dotenv import load_dotenv
@@ -18,6 +19,8 @@ else:
     from tools.weather import get_weather_alerts, get_weather_forecast
     from tools.news import get_energy_news
 
+from tools.alert import send_alert
+
 API_KEY = os.environ["OPENROUTER_API_KEY"]
 MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -30,6 +33,7 @@ TOOLS = {
     "get_weather_alerts": get_weather_alerts,
     "get_weather_forecast": get_weather_forecast,
     "get_energy_news": get_energy_news,
+    "send_alert": send_alert,
 }
 
 TOOL_SCHEMAS = [
@@ -73,6 +77,28 @@ TOOL_SCHEMAS = [
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "send_alert",
+            "description": "Push a risk alert notification to the on-call analyst via ntfy.sh. Call this after forming your risk assessment — before outputting the final briefing. GREEN risk skips the push; RED and YELLOW fire immediately.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "risk_level": {
+                        "type": "string",
+                        "enum": ["RED", "YELLOW", "GREEN"],
+                        "description": "Risk level determined from the grid and weather data.",
+                    },
+                    "summary": {
+                        "type": "string",
+                        "description": "One-sentence briefing summary to include in the notification body.",
+                    },
+                },
+                "required": ["risk_level", "summary"],
+            },
+        },
+    },
 ]
 
 # ── Agent loop ─────────────────────────────────────────────────────────────────
@@ -83,7 +109,6 @@ def run_gridwatch(max_steps: int = 10):
         {"role": "user", "content": "Run the morning grid briefing. Check demand, weather, and news. Give me the risk level and what I need to know right now."}
     ]
     step = 0
-    checkpoint_done = False
 
     while step < max_steps:
         step += 1
@@ -110,24 +135,16 @@ def run_gridwatch(max_steps: int = 10):
                 if fn_name not in TOOLS:
                     print(f"  ✗ Unknown tool requested: {fn_name} — skipping")
                     continue
-                print(f"  → calling {fn_name}...")
-                result = TOOLS[fn_name]()
-                print(f"  ← got {len(result)} chars")
+                raw_args = call["function"].get("arguments", "{}")
+                kwargs = json.loads(raw_args) if raw_args else {}
+                print(f"  → calling {fn_name}({', '.join(f'{k}={v!r}' for k, v in kwargs.items()) if kwargs else ''})...")
+                result = TOOLS[fn_name](**kwargs) if kwargs else TOOLS[fn_name]()
+                print(f"  ← {result[:80]!r}" if len(result) > 80 else f"  ← {result!r}")
                 messages.append({
                     "role": "tool",
                     "tool_call_id": call["id"],
                     "content": result,
                 })
-
-        # human checkpoint — fires once when agent outputs RED risk
-        elif message.get("content") and "🔴" in message["content"] and not checkpoint_done:
-            checkpoint_done = True
-            print("\n" + "="*50)
-            print("⚠️  HIGH RISK CONDITIONS DETECTED")
-            print("="*50)
-            print(message["content"])
-            confirm = input("\nShould I escalate this briefing? (yes/no): ").strip().lower()
-            messages.append({"role": "user", "content": f"Analyst says: {confirm}. Finalize and output the briefing."})
 
         else:
             print("\n" + "="*50)
