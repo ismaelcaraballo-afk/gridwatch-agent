@@ -2,6 +2,8 @@ import os
 import requests
 from dotenv import load_dotenv
 
+load_dotenv()
+
 from prompts import SYSTEM_PROMPT
 
 USE_STUBS = os.environ.get("USE_STUBS", "false").lower() == "true"
@@ -16,10 +18,8 @@ else:
     from tools.weather import get_weather_alerts, get_weather_forecast
     from tools.news import get_energy_news
 
-load_dotenv()
-
 API_KEY = os.environ["OPENROUTER_API_KEY"]
-MODEL = "tencent/hy3-preview:free"
+MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # ── Tool registry ──────────────────────────────────────────────────────────────
