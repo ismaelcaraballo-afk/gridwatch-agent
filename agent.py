@@ -13,11 +13,13 @@ if USE_STUBS:
     from tools.stubs import get_grid_demand, get_generation_mix
     from tools.stubs import get_weather_alerts, get_weather_forecast
     from tools.stubs import get_energy_news
+    from tools.stubs import get_lmp_prices
     print("[STUB MODE] Using fake data — set USE_STUBS=false to use real APIs")
 else:
     from tools.grid import get_grid_demand, get_generation_mix
     from tools.weather import get_weather_alerts, get_weather_forecast
     from tools.news import get_energy_news
+    from tools.market import get_lmp_prices
 
 from tools.alert import send_alert
 
@@ -33,6 +35,7 @@ TOOLS = {
     "get_weather_alerts": get_weather_alerts,
     "get_weather_forecast": get_weather_forecast,
     "get_energy_news": get_energy_news,
+    "get_lmp_prices": get_lmp_prices,
     "send_alert": send_alert,
 }
 
@@ -74,6 +77,14 @@ TOOL_SCHEMAS = [
         "function": {
             "name": "get_energy_news",
             "description": "Get recent energy industry headlines from public RSS feeds.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_lmp_prices",
+            "description": "Get current-hour NYISO day-ahead Locational Marginal Prices ($/MWh) by zone, plus zone average and spread.",
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
