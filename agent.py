@@ -24,7 +24,7 @@ else:
 
 from tools.alert import send_alert
 
-API_KEY = os.environ.get("OPENROUTER_API_KEY") or ""
+API_KEY = os.environ["OPENROUTER_API_KEY"]
 MODEL = os.environ.get("OPENROUTER_MODEL", "nvidia/nemotron-3-super-120b-a12b:free")
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 MAX_TOOL_WORKERS = 8
