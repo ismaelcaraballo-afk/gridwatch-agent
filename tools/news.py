@@ -30,3 +30,46 @@ def get_energy_news() -> str:
     if not headlines:
         return "No energy news headlines available at this time."
     return "\n".join(headlines)
+
+
+_SENTIMENT_KEYWORDS = {
+    "bearish": [
+        "spike", "surge", "crisis", "shortage", "outage", "disruption", "warning",
+        "alert", "conflict", "sanctions", "cut", "decline", "risk", "threat",
+        "record high", "ban", "war", "fail", "loss", "deficit", "curtail",
+    ],
+    "cautious": [
+        "tight", "concern", "elevated", "above average", "potential", "possible",
+        "monitor", "uncertain", "volatile", "watch", "delay", "stall", "oppose",
+        "slow", "challenge", "pressure",
+    ],
+    "bullish": [
+        "growth", "expand", "investment", "record low", "renewable", "clean",
+        "new", "open", "ships", "launch", "advance", "capacity", "efficient",
+        "approve", "gain", "increase", "boost", "strong",
+    ],
+}
+
+
+def get_news_sentiment() -> dict:
+    """Score energy headlines by sentiment. Returns percentages summing to 100."""
+    raw = get_energy_news()
+    if raw == "No energy news headlines available at this time.":
+        return {"bearish": 0, "cautious": 0, "neutral": 100, "bullish": 0}
+
+    headlines = [line.split("] ", 1)[-1].lower() for line in raw.splitlines() if line]
+    counts = {"bearish": 0, "cautious": 0, "neutral": 0, "bullish": 0}
+
+    for headline in headlines:
+        matched = None
+        for bucket, keywords in _SENTIMENT_KEYWORDS.items():
+            if any(kw in headline for kw in keywords):
+                matched = bucket
+                break
+        counts[matched or "neutral"] += 1
+
+    total = len(headlines)
+    if total == 0:
+        return {"bearish": 0, "cautious": 0, "neutral": 100, "bullish": 0}
+
+    return {k: round(v / total * 100) for k, v in counts.items()}
