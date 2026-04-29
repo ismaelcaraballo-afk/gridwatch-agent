@@ -55,9 +55,9 @@ def get_weather_forecast() -> str:
         timeout=30,
     )
     forecast_resp.raise_for_status()
-    periods = forecast_resp.json()["properties"]["periods"][:12]
+    periods = forecast_resp.json()["properties"]["periods"][:48]
 
-    lines = [f"12-hour forecast — {LOCATION_LABEL}:"]
+    lines = [f"48-hour forecast — {LOCATION_LABEL}:"]
     for period in periods:
         name = period.get("name", "")
         temp = period.get("temperature", "?")
