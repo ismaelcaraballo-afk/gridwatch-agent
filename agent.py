@@ -1,5 +1,6 @@
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 from dotenv import load_dotenv
 
@@ -141,20 +142,35 @@ def run_gridwatch(max_steps: int = 10):
         messages.append(message)
 
         if message.get("tool_calls"):
+            valid_calls = [
+                call for call in message["tool_calls"]
+                if call["function"]["name"] in TOOLS
+            ]
             for call in message["tool_calls"]:
+                if call["function"]["name"] not in TOOLS:
+                    print(f"  ✗ Unknown tool requested: {call['function']['name']} — skipping")
+
+            def _execute(call):
                 fn_name = call["function"]["name"]
-                if fn_name not in TOOLS:
-                    print(f"  ✗ Unknown tool requested: {fn_name} — skipping")
-                    continue
                 raw_args = call["function"].get("arguments", "{}")
                 kwargs = json.loads(raw_args) if raw_args else {}
                 print(f"  → calling {fn_name}({', '.join(f'{k}={v!r}' for k, v in kwargs.items()) if kwargs else ''})...")
                 result = TOOLS[fn_name](**kwargs) if kwargs else TOOLS[fn_name]()
                 print(f"  ← {result[:80]!r}" if len(result) > 80 else f"  ← {result!r}")
+                return call["id"], result
+
+            results = {}
+            with ThreadPoolExecutor(max_workers=len(valid_calls)) as pool:
+                futures = {pool.submit(_execute, call): call for call in valid_calls}
+                for future in as_completed(futures):
+                    call_id, result = future.result()
+                    results[call_id] = result
+
+            for call in valid_calls:
                 messages.append({
                     "role": "tool",
                     "tool_call_id": call["id"],
-                    "content": result,
+                    "content": results[call["id"]],
                 })
 
         else:
