@@ -24,9 +24,10 @@ else:
 
 from tools.alert import send_alert
 
-API_KEY = os.environ["OPENROUTER_API_KEY"]
-MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
+API_KEY = os.environ.get("OPENROUTER_API_KEY") or ""
+MODEL = os.environ.get("OPENROUTER_MODEL", "nvidia/nemotron-3-super-120b-a12b:free")
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
+MAX_TOOL_WORKERS = 8
 
 # ── Tool registry ──────────────────────────────────────────────────────────────
 
@@ -113,6 +114,26 @@ TOOL_SCHEMAS = [
     },
 ]
 
+# ── Tool execution ─────────────────────────────────────────────────────────────
+
+def _execute_tool(call: dict) -> tuple[str, str]:
+    fn_name = call["function"]["name"]
+    raw_args = call["function"].get("arguments", "{}")
+    try:
+        kwargs = json.loads(raw_args) if raw_args else {}
+    except json.JSONDecodeError:
+        print(f"  ✗ Malformed args for {fn_name}: {raw_args}")
+        kwargs = {}
+    label = f"{fn_name}({', '.join(f'{k}={v!r}' for k, v in kwargs.items()) if kwargs else ''})"
+    print(f"  → calling {label}...")
+    try:
+        result = TOOLS[fn_name](**kwargs) if kwargs else TOOLS[fn_name]()
+    except Exception as e:
+        result = f"Tool error ({fn_name}): {e}"
+    print(f"  ← {result[:80]!r}" if len(result) > 80 else f"  ← {result!r}")
+    return call["id"], result
+
+
 # ── Agent loop ─────────────────────────────────────────────────────────────────
 
 def run_gridwatch(max_steps: int = 10):
@@ -150,18 +171,10 @@ def run_gridwatch(max_steps: int = 10):
                 if call["function"]["name"] not in TOOLS:
                     print(f"  ✗ Unknown tool requested: {call['function']['name']} — skipping")
 
-            def _execute(call):
-                fn_name = call["function"]["name"]
-                raw_args = call["function"].get("arguments", "{}")
-                kwargs = json.loads(raw_args) if raw_args else {}
-                print(f"  → calling {fn_name}({', '.join(f'{k}={v!r}' for k, v in kwargs.items()) if kwargs else ''})...")
-                result = TOOLS[fn_name](**kwargs) if kwargs else TOOLS[fn_name]()
-                print(f"  ← {result[:80]!r}" if len(result) > 80 else f"  ← {result!r}")
-                return call["id"], result
-
             results = {}
-            with ThreadPoolExecutor(max_workers=len(valid_calls)) as pool:
-                futures = {pool.submit(_execute, call): call for call in valid_calls}
+            workers = min(len(valid_calls), MAX_TOOL_WORKERS)
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                futures = {pool.submit(_execute_tool, call): call for call in valid_calls}
                 for future in as_completed(futures):
                     call_id, result = future.result()
                     results[call_id] = result
