@@ -70,17 +70,6 @@
      └──────────┴──────────┴─────────┴──────────┴────────────┘
                                     │
                           ┌─────────▼──────────┐
-                          │  SCORING ENGINE     │
-                          │  score_risk_factors │
-                          │                    │
-                          │  Demand Spike  0-100│
-                          │  Supply Margin 0-100│
-                          │  Weather Impact0-100│
-                          │  Market Stress 0-100│
-                          │  Infra Risk    0-100│
-                          └─────────┬──────────┘
-                                    │
-                          ┌─────────▼──────────┐
                           │   LLM REASONING     │
                           │                    │
                           │  v1: Nemotron free  │
@@ -105,9 +94,10 @@
                                                │     └── React Dashboard           │
                                                │         ┌─────────────────────┐  │
                                                │         │ Module 01           │  │
-                                               │         │ RISK GAUGE          │  │
-                                               │         │ composite 0-100     │  │
-                                               │         │ ← score_risk_factors│  │
+                                               │         │ RISK LEVEL          │  │
+                                               │         │ 🟡 YELLOW           │  │
+                                               │         │ · cited factors     │  │
+                                               │         │ (LLM verdict)       │  │
                                                │         ├─────────────────────┤  │
                                                │         │ Module 02           │  │
                                                │         │ GRID STATUS         │  │
@@ -237,27 +227,13 @@ They need:
 
 ---
 
-#### ISMAEL — Risk Sub-Factor Scoring
-**Branch:** `feature/ismael-scoring`
-**New function:** `tools/scoring.py` → `score_risk_factors(demand_data, gen_mix, lmp_data, weather_data)`
+#### ISMAEL — ~~Risk Sub-Factor Scoring~~ REMOVED
+Greg feedback: scoring as a decision model is out. The LLM reasons directly
+from raw tool outputs and applies the RED/YELLOW/GREEN classification rules
+in prompts.py. No formula. No computed number. The agent decides.
 
-**What it does:**
-- Takes outputs from existing tools as input
-- Computes 5 sub-factor scores (0–100 each):
-  - `demand_spike` — current demand vs. regional capacity limit
-  - `supply_margin` — % of dispatchable capacity uncommitted
-  - `weather_impact` — severity × proximity of active alerts
-  - `market_stress` — LMP level + spread vs. historical thresholds
-  - `infra_risk` — placeholder (0) in v2, populated with NERC TADS in v3
-- Returns: `{ "demand_spike": int, "supply_margin": int, "weather_impact": int, "market_stress": int, "infra_risk": int, "composite": int }`
-
-**Acceptance gates:**
-1. Call with mock data, get valid 0–100 scores back
-2. Composite score maps to risk level: 0–39 GREEN, 40–69 YELLOW, 70–100 RED
-3. LLM references sub-scores in briefing — replaces static threshold logic in prompts.py
-
-**Why this matters for the analyst:**
-> Michael's v2 dashboard Module 01 gauge feeds directly from composite score. This is the engine under that dial.
+Ismael's Tier 1 slot is freed — can pick up a Tier 2 item (cron scheduler
+or spark spread) once Edwin and Christian's tools are in.
 
 ---
 
@@ -278,7 +254,7 @@ They need:
 **JSON contract — `GET /briefing` response:**
 ```json
 {
-  "risk":   { "level": "YELLOW", "composite": 62, "sub_factors": { "demand_spike": 70, "supply_margin": 55, "weather_impact": 40, "market_stress": 80, "infra_risk": 0 } },
+  "risk":   { "level": "YELLOW", "factors": ["LMP NYC $187/MWh", "Heat Warning active", "Demand +32% above avg"] },
   "grid":   { "demand_mw": 24800, "capacity_mw": 33000, "gen_mix": { "gas": 48, "nuclear": 22, "hydro": 14, "wind": 9, "solar": 7 } },
   "weather":{ "active_alerts": ["Heat Advisory — NYC"], "hourly_forecast": [...], "renewable_potential": "low" },
   "market": { "lmp_avg": 148.50, "lmp_by_zone": { "NYC": 155, "LONGIL": 142 }, "spread": 38 },
@@ -290,7 +266,7 @@ They need:
 **Module → data mapping:**
 | Module | Feeds from |
 |--------|-----------|
-| 01 Risk Gauge | `risk.composite` + `risk.sub_factors` ← `score_risk_factors()` |
+| 01 Risk Level | `risk.level` + `risk.factors` ← LLM briefing text parsed by server.py |
 | 02 Grid Status | `grid.demand_mw`, `grid.gen_mix` ← `get_grid_demand()`, `get_generation_mix()` |
 | 03 Weather | `weather.active_alerts`, `weather.hourly_forecast` ← `get_weather_alerts()`, `get_weather_forecast()` |
 | 04 Market | `market.lmp_by_zone`, `market.spread` ← `get_lmp_prices()` |
@@ -335,7 +311,7 @@ Cost gate: Anthropic API upgrade requires Greg's sign-off. Document the capabili
 | 1 | Anomaly Detection (Z-score) | 1 | Juan | Internal | Unstarted |
 | 2 | EIA 24hr Demand Forecast | 1 | Edwin | EIA v2 | Unstarted |
 | 3 | Cross-Regional Flows | 1 | Christian | NYISO OASIS | Unstarted |
-| 4 | Risk Sub-Factor Scoring | 1 | Ismael | Internal compute | Unstarted |
+| 4 | Risk Sub-Factor Scoring | — | — | REMOVED — LLM decides directly | Greg feedback |
 | 5 | Spark Spread / Fleet Commit | 2 | Edwin | EIA gas prices | Unstarted |
 | 6 | Historical 30-Day Baseline | 2 | Juan | SQLite | Unstarted |
 | 7 | Web Dashboard (server.py + React) | 2 | Michael | Flask/FastAPI + React | Unstarted — GREENLIT |
