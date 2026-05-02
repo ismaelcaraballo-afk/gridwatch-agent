@@ -1,4 +1,5 @@
 import os
+import time
 import requests
 
 EIA_BASE = "https://api.eia.gov/v2/electricity/rto"
@@ -20,24 +21,37 @@ FUEL_LABELS = {
 CLEAN_FUELS = {"SUN", "WND", "WAT", "NUC"}
 
 
+def _get_with_retry(url, params, retries=2, timeout=30) -> requests.Response:
+    for attempt in range(retries + 1):
+        resp = requests.get(url, params=params, timeout=timeout)
+        if resp.status_code in (502, 503, 504) and attempt < retries:
+            time.sleep(3)
+            continue
+        resp.raise_for_status()
+        return resp
+    resp.raise_for_status()
+    return resp
+
+
 def get_grid_demand() -> str:
     """Get current real-time electricity demand for the NYISO grid region."""
     key = os.environ["EIA_API_KEY"]
-    resp = requests.get(
-        f"{EIA_BASE}/region-data/data",
-        params={
-            "api_key": key,
-            "frequency": "hourly",
-            "data[0]": "value",
-            "facets[respondent][]": REGION,
-            "facets[type][]": "D",
-            "sort[0][column]": "period",
-            "sort[0][direction]": "desc",
-            "length": 5,
-        },
-        timeout=30,
-    )
-    resp.raise_for_status()
+    try:
+        resp = _get_with_retry(
+            f"{EIA_BASE}/region-data/data",
+            params={
+                "api_key": key,
+                "frequency": "hourly",
+                "data[0]": "value",
+                "facets[respondent][]": REGION,
+                "facets[type][]": "D",
+                "sort[0][column]": "period",
+                "sort[0][direction]": "desc",
+                "length": 5,
+            },
+        )
+    except requests.RequestException as e:
+        return f"EIA demand data unavailable ({e}). Grid status unknown — use caution."
     data = resp.json().get("response", {}).get("data", [])
     if not data:
         return "No demand data available."
@@ -61,20 +75,21 @@ def get_grid_demand() -> str:
 def get_generation_mix() -> str:
     """Get current electricity generation breakdown by fuel type for NYISO."""
     key = os.environ["EIA_API_KEY"]
-    resp = requests.get(
-        f"{EIA_BASE}/fuel-type-data/data",
-        params={
-            "api_key": key,
-            "frequency": "hourly",
-            "data[0]": "value",
-            "facets[respondent][]": REGION,
-            "sort[0][column]": "period",
-            "sort[0][direction]": "desc",
-            "length": 20,
-        },
-        timeout=30,
-    )
-    resp.raise_for_status()
+    try:
+        resp = _get_with_retry(
+            f"{EIA_BASE}/fuel-type-data/data",
+            params={
+                "api_key": key,
+                "frequency": "hourly",
+                "data[0]": "value",
+                "facets[respondent][]": REGION,
+                "sort[0][column]": "period",
+                "sort[0][direction]": "desc",
+                "length": 20,
+            },
+        )
+    except requests.RequestException as e:
+        return f"EIA generation data unavailable ({e}). Fuel mix unknown."
     data = resp.json().get("response", {}).get("data", [])
     if not data:
         return "No generation data available."
