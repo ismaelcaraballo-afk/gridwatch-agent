@@ -1,6 +1,8 @@
 import requests
 import xml.etree.ElementTree as ET
 
+from tools.http import get_with_backoff
+
 RSS_FEEDS = [
     ("EIA Today in Energy", "https://www.eia.gov/rss/todayinenergy.xml"),
     ("OilPrice.com", "https://oilprice.com/rss/main"),
@@ -13,9 +15,7 @@ def get_energy_news() -> str:
     headlines = []
     for name, url in RSS_FEEDS:
         try:
-            resp = requests.get(url, timeout=10, headers={"User-Agent": "gridwatch-agent/1.0"})
-            if resp.status_code != 200:
-                continue
+            resp = get_with_backoff(url, timeout=10, headers={"User-Agent": "gridwatch-agent/1.0"})
             root = ET.fromstring(resp.content)
             items = root.findall(".//item")[:3]
             for item in items:

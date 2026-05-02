@@ -1,5 +1,7 @@
 import requests
 
+from tools.http import get_with_backoff
+
 # Hardcoded to NYC (40.7128° N, 74.0060° W)
 # To change location: update LAT and LON below
 LAT = 40.7128
@@ -12,13 +14,12 @@ HEADERS = {"User-Agent": "gridwatch-agent/1.0 (energy ops briefing tool)"}
 
 def get_weather_alerts() -> str:
     """Get active NWS severe weather alerts for the NYC area."""
-    resp = requests.get(
+    resp = get_with_backoff(
         f"{NOAA_BASE}/alerts/active",
         params={"point": f"{LAT},{LON}"},
         headers=HEADERS,
         timeout=30,
     )
-    resp.raise_for_status()
     features = resp.json().get("features", [])
 
     if not features:
@@ -41,20 +42,18 @@ def get_weather_alerts() -> str:
 
 def get_weather_forecast() -> str:
     """Get the next 12-hour hourly weather forecast for NYC from NOAA."""
-    points_resp = requests.get(
+    points_resp = get_with_backoff(
         f"{NOAA_BASE}/points/{LAT},{LON}",
         headers=HEADERS,
         timeout=30,
     )
-    points_resp.raise_for_status()
     forecast_hourly_url = points_resp.json()["properties"]["forecastHourly"]
 
-    forecast_resp = requests.get(
+    forecast_resp = get_with_backoff(
         forecast_hourly_url,
         headers=HEADERS,
         timeout=30,
     )
-    forecast_resp.raise_for_status()
     periods = forecast_resp.json()["properties"]["periods"][:48]
 
     lines = [f"48-hour forecast — {LOCATION_LABEL}:"]

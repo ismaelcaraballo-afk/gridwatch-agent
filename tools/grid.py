@@ -1,6 +1,7 @@
 import os
-import time
 import requests
+
+from tools.http import get_with_backoff
 
 EIA_BASE = "https://api.eia.gov/v2/electricity/rto"
 
@@ -22,15 +23,7 @@ CLEAN_FUELS = {"SUN", "WND", "WAT", "NUC"}
 
 
 def _get_with_retry(url, params, retries=2, timeout=30) -> requests.Response:
-    for attempt in range(retries + 1):
-        resp = requests.get(url, params=params, timeout=timeout)
-        if resp.status_code in (502, 503, 504) and attempt < retries:
-            time.sleep(3)
-            continue
-        resp.raise_for_status()
-        return resp
-    resp.raise_for_status()
-    return resp
+    return get_with_backoff(url, params=params, timeout=timeout, max_retries=retries)
 
 
 def get_grid_demand() -> str:

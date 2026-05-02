@@ -1,6 +1,10 @@
+import json
+import os
+import time
 import requests
 
 NTFY_URL = "https://ntfy.sh/gridwatch-ismael"
+STATE_FILE = "/tmp/gridwatch_alert_state.json"
 
 PRIORITY = {
     "RED":    ("urgent", "red_circle"),
@@ -8,31 +12,65 @@ PRIORITY = {
     "GREEN":  ("low",    "green_circle"),
 }
 
+# Cooldown in seconds before the same risk level fires again.
+# Escalation (YELLOW → RED) always bypasses cooldown.
+COOLDOWN = {
+    "RED":    15 * 60,   # 15 minutes
+    "YELLOW": 60 * 60,   # 60 minutes
+}
+
+RISK_RANK = {"GREEN": 0, "YELLOW": 1, "RED": 2}
+
+
+def _load_state() -> dict:
+    try:
+        with open(STATE_FILE) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def _save_state(level: str) -> None:
+    with open(STATE_FILE, "w") as f:
+        json.dump({"last_level": level, "last_time": time.time()}, f)
+
+
+def _is_suppressed(level: str) -> tuple[bool, str]:
+    state = _load_state()
+    if not state:
+        return False, ""
+
+    last_level = state.get("last_level", "GREEN")
+    last_time = state.get("last_time", 0)
+    elapsed = time.time() - last_time
+
+    # Always fire if this is an escalation
+    if RISK_RANK.get(level, 0) > RISK_RANK.get(last_level, 0):
+        return False, ""
+
+    cooldown = COOLDOWN.get(level, 0)
+    if elapsed < cooldown:
+        remaining = int((cooldown - elapsed) / 60)
+        return True, f"Alert suppressed — {level} already sent {int(elapsed/60)}m ago (cooldown {cooldown//60}m, {remaining}m remaining)."
+
+    return False, ""
+
 
 def send_alert(risk_level: str, summary: str) -> str:
     """Push a risk alert to the on-call analyst via ntfy.sh.
 
     Fires automatically when the agent detects RED or YELLOW conditions.
-    The analyst receives a phone notification without any manual trigger.
-    GREEN risk skips the notification entirely — no noise on quiet mornings.
-
-    Args:
-        risk_level: "RED", "YELLOW", or "GREEN"
-        summary:    One-sentence briefing summary to include in the notification body.
-
-    Returns:
-        Delivery confirmation string the agent can include in its final output,
-        or an error message if delivery failed.
-
-    Failure cases handled:
-        - Network / timeout error  → returns error string, does not raise
-        - Non-200 response         → returns error string with HTTP status
-        - GREEN risk level         → returns early, no HTTP call made
+    GREEN skips the push. Repeated same-level alerts are suppressed during
+    the cooldown window (RED: 15 min, YELLOW: 60 min). Escalation always fires.
     """
     level = risk_level.strip().upper()
 
     if level == "GREEN":
         return "No alert sent — risk level is GREEN."
+
+    suppressed, reason = _is_suppressed(level)
+    if suppressed:
+        return reason
 
     priority, tag = PRIORITY.get(level, ("default", "warning"))
 
@@ -53,6 +91,7 @@ def send_alert(risk_level: str, summary: str) -> str:
     if resp.status_code != 200:
         return f"Alert delivery failed (HTTP {resp.status_code}): {resp.text[:120]}"
 
+    _save_state(level)
     return f"Alert sent → ntfy.sh/gridwatch-ismael | priority: {priority} | {level}"
 
 
