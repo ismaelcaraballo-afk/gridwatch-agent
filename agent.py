@@ -223,7 +223,11 @@ def run_gridwatch(max_steps: int = 10):
             console.print(f"[red]✗ API error: {e}[/red]")
             return "Agent stopped — API error."
 
-        message = resp.json()["choices"][0]["message"]
+        body = resp.json()
+        if "choices" not in body or not body["choices"]:
+            console.print(f"[yellow]⚠  Bad response from API, retrying...[/yellow]")
+            continue
+        message = body["choices"][0]["message"]
         messages.append(message)
 
         if message.get("tool_calls"):
