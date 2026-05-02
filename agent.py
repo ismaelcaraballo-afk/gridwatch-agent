@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import time
@@ -201,9 +202,10 @@ def _print_briefing(content: str):
 def run_gridwatch(max_steps: int = 10):
     _print_banner()
 
+    trigger_time = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": "Run the morning grid briefing. Check demand, weather, and news. Give me the risk level and what I need to know right now."}
+        {"role": "user", "content": f"AUTOMATED DISPATCH — {trigger_time} UTC. Execute full grid risk assessment now."},
     ]
     step = 0
 
@@ -266,4 +268,18 @@ def run_gridwatch(max_steps: int = 10):
 
 
 if __name__ == "__main__":
-    run_gridwatch()
+    parser = argparse.ArgumentParser(description="GridWatch — Autonomous Grid Risk Agent")
+    parser.add_argument(
+        "--interval", type=int, default=0, metavar="MINUTES",
+        help="Run continuously on this interval (minutes). Omit for a single run."
+    )
+    args = parser.parse_args()
+
+    if args.interval > 0:
+        console.print(f"[dim]Scheduled mode — running every {args.interval} minute(s). Ctrl+C to stop.[/dim]")
+        while True:
+            run_gridwatch()
+            console.print(f"[dim]Next run in {args.interval} minute(s)...[/dim]")
+            time.sleep(args.interval * 60)
+    else:
+        run_gridwatch()
