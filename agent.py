@@ -30,6 +30,7 @@ else:
     from tools.weather import get_weather_alerts, get_weather_forecast
     from tools.news import get_energy_news
     from tools.market import get_lmp_prices
+    from tools.forecast import get_demand_forecast
 
 from tools.alert import send_alert
 
@@ -48,6 +49,7 @@ TOOLS = {
     "get_energy_news": get_energy_news,
     "get_lmp_prices": get_lmp_prices,
     "send_alert": send_alert,
+    "get_demand_forecast": get_demand_forecast,
 }
 
 TOOL_SCHEMAS = [
@@ -96,6 +98,14 @@ TOOL_SCHEMAS = [
         "function": {
             "name": "get_lmp_prices",
             "description": "Get current-hour NYISO day-ahead Locational Marginal Prices ($/MWh) by zone, plus zone average and spread.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_demand_forecast",
+            "description": "Get the next 24-hour day-ahead demand forecast for NYISO, including peak hour, sustained demand window, and how the forecast peak compares to current actual demand.",
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
