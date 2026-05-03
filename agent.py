@@ -25,7 +25,6 @@ if USE_STUBS:
     from tools.stubs import get_lmp_prices
     from tools.stubs import get_henry_hub_price
     from tools.stubs import detect_anomaly, get_demand_forecast, get_interconnection_flows
-    from tools.stubs import get_security_alerts
     console.print("[yellow]⚠  STUB MODE — using fake data[/yellow]")
 else:
     from tools.grid import get_grid_demand, get_generation_mix
@@ -45,10 +44,6 @@ else:
         from tools.intercon import get_interconnection_flows
     except ImportError:
         from tools.stubs import get_interconnection_flows
-    try:
-        from tools.security import get_security_alerts
-    except ImportError:
-        from tools.stubs import get_security_alerts
 
 from tools.alert import send_alert
 
@@ -76,7 +71,6 @@ TOOLS = {
     "detect_anomaly":            detect_anomaly,
     "get_demand_forecast":       get_demand_forecast,
     "get_interconnection_flows": get_interconnection_flows,
-    "get_security_alerts":       get_security_alerts,
     "send_alert":                send_alert,
 }
 
@@ -143,11 +137,6 @@ TOOL_SCHEMAS = [
     {
         "name": "get_interconnection_flows",
         "description": "Get current MW flows on NYISO ↔ PJM and NYISO ↔ ISO-NE tie-lines. Positive = exporting, negative = importing.",
-        "input_schema": {"type": "object", "properties": {}, "required": []},
-    },
-    {
-        "name": "get_security_alerts",
-        "description": "Get active CISA ICS-CERT advisories and E-ISAC threat bulletins relevant to the electric grid. Returns current cyber threat level and any active vulnerability disclosures.",
         "input_schema": {"type": "object", "properties": {}, "required": []},
     },
     {

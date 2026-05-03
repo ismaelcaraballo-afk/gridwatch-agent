@@ -41,11 +41,6 @@ MCHEL ░░░░░░░░░░░░░░░░░░░░░░░░�
       dashboard/ all 5 modules by Wed EOD
       branch: feature/michael-dashboard
 
-BEATR ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░[PR Tue]
-      get_security_alerts()
-      tools/security.py
-      branch: feature/beatrice-security
-
 ISMAL ──────────── MERGE & INTEGRATE ──────────────────────[DEMO READY Wed]
       reviews PRs, merges Tue-Wed, full integration test Wed, demo run Wed
 ```
@@ -180,57 +175,6 @@ Same CSV pattern as the LMP tool already in `tools/market.py` — look at
 
 ---
 
-## Beatrice — Grid Cybersecurity Alerts
-
-**Branch:** `feature/beatrice-security`
-**File:** `tools/security.py`
-**Due:** Tuesday May 5 (PR open by EOD)
-
-```python
-# Function signature
-def get_security_alerts() -> str:
-```
-
-**What it does:**
-- Fetches active CISA ICS-CERT advisories for energy/OT systems (public RSS feed, no key required)
-- Fetches E-ISAC TLP:WHITE threat bulletins where publicly available
-- Returns current cyber threat level + any active advisories the LLM can cite
-
-**Return format:**
-```
-Grid cybersecurity alerts — as of 2026-05-04:
-  [CISA ICS-CERT] ICSA-26-124-01 — Vulnerability in SCADA firmware; patch available.
-  [E-ISAC] TLP:WHITE — Elevated scanning activity on grid-adjacent infrastructure.
-  Active threat level: ELEVATED
-  Recommendation: Verify OT/IT segmentation on internet-facing assets.
-```
-
-If no active alerts:
-```
-Grid cybersecurity alerts — as of 2026-05-04:
-  No active ICS-CERT advisories for energy sector.
-  E-ISAC threat level: NORMAL
-```
-
-**Gate 1 (Monday):** Call standalone, get a valid string back (graceful "no alerts" if feed is empty — never raise)
-```bash
-cd gridwatch-agent && .venv/bin/python3 -c "
-from tools.security import get_security_alerts
-print(get_security_alerts())
-"
-```
-
-**Gate 2 (Tuesday):** Wired into agent. LLM cites cyber threat in briefing when ELEVATED:
-> "CISA ICS-CERT advisory active for energy sector SCADA — patch status unknown for NYISO-adjacent assets."
-
-**CISA ICS-CERT RSS feed (public, no key):**
-```
-https://www.cisa.gov/ics-advisories.xml
-```
-Filter for `<category>` tags containing "Energy" or "Critical Manufacturing". Same `get_with_backoff` pattern as other tools.
-
----
-
 ## Michael — server.py + React Dashboard
 
 **Branch:** `feature/michael-dashboard`
@@ -295,12 +239,11 @@ Dashboard works in browser. No blank panels.
 ## Dependencies
 
 ```
-Juan (anomaly)       ──┐
-Edwin (forecast)     ──┤
-Christian (flows)    ──┼──► main merge (Wed) ──► Michael dashboard (Wed)
-Beatrice (security)  ──┘
+Juan (anomaly)     ──┐
+Edwin (forecast)   ──┼──► main merge (Wed) ──► Michael dashboard (Thu-Fri)
+Christian (flows)  ──┘
 
-Michael server.py (Tue) ──► React modules feed from /briefing (Wed)
+Michael server.py (Wed) ──► React modules feed from /briefing (Thu-Fri)
 ```
 
 Michael can build modules 02-05 before the tool PRs merge — he can stub
