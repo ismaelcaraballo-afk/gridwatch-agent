@@ -110,3 +110,14 @@ def get_interconnection_flows() -> str:
         "  Net position: importing 860 MW from neighbors\n"
         "  Detail: NYISO is drawing from PJM — regional supply dependency present."
     )
+
+def get_security_alerts() -> str:
+    return (
+        "Grid cybersecurity alerts — as of 2026-04-26:\n"
+        "  [CISA ICS-CERT] ICSA-26-116-01 — Vulnerability in energy management system firmware; "
+        "patch available, exploitation not yet detected in the wild.\n"
+        "  [E-ISAC] TLP:WHITE bulletin — Elevated scanning activity observed against "
+        "NYISO-adjacent substations; no confirmed intrusion; monitoring in effect.\n"
+        "  Active threat level: ELEVATED\n"
+        "  Recommendation: Verify OT/IT segmentation on any internet-facing assets."
+    )
