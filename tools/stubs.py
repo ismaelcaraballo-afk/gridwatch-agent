@@ -1,5 +1,5 @@
 """
-Stub versions of all 5 tools — return realistic fake data so the agent
+Stub versions of all tools — return realistic fake data so the agent
 loop can run end-to-end without any API keys.
 
 Usage: set USE_STUBS=true in your .env to use these instead of real tools.
@@ -68,4 +68,45 @@ def get_lmp_prices() -> str:
         "  NORTH: $89.45/MWh\n"
         "  WEST: $84.10/MWh\n"
         "  → Zone avg: $126.71/MWh | Spread (max − min): $103.32/MWh"
+    )
+
+def get_henry_hub_price() -> str:
+    return (
+        "Henry Hub spot price as of 2026-04-26:\n"
+        "  $3.84/MMBtu (▲ $0.22 vs prior day (2026-04-25))"
+    )
+
+def detect_anomaly(demand_mw: float, lmp_prices: dict) -> str:
+    return (
+        "Anomaly detection — NYISO:\n"
+        "  Demand Z-score: +2.4  ← ANOMALY (threshold ±2.0)\n"
+        "  LMP Z-score: +1.8     ← normal\n"
+        "  Window size: 30 samples\n"
+        f"  Detail: Demand {demand_mw:,.0f} MW is 2.4 std deviations above recent baseline."
+    )
+
+def get_demand_forecast() -> str:
+    return (
+        "24-hour demand forecast — NYISO:\n"
+        "  2026-04-26 15:00  15,200 MW\n"
+        "  2026-04-26 16:00  16,800 MW\n"
+        "  2026-04-26 17:00  18,100 MW\n"
+        "  2026-04-26 18:00  19,400 MW\n"
+        "  2026-04-26 19:00  18,900 MW\n"
+        "  2026-04-26 20:00  17,200 MW\n"
+        "  2026-04-26 21:00  15,800 MW\n"
+        "  2026-04-26 22:00  14,400 MW\n"
+        "  2026-04-26 23:00  13,100 MW\n"
+        "  2026-04-27 00:00  12,200 MW\n"
+        "  ... (24 hours total)\n"
+        "  Peak: 19,400 MW at 2026-04-26 18:00"
+    )
+
+def get_interconnection_flows() -> str:
+    return (
+        "NYISO interface flows — current hour:\n"
+        "  NYISO → PJM:    -1,240 MW  (importing)\n"
+        "  NYISO → ISO-NE:   +380 MW  (exporting)\n"
+        "  Net position: importing 860 MW from neighbors\n"
+        "  Detail: NYISO is drawing from PJM — regional supply dependency present."
     )

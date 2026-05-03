@@ -1,5 +1,6 @@
 import argparse
 import os
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import anthropic
@@ -22,18 +23,33 @@ if USE_STUBS:
     from tools.stubs import get_weather_alerts, get_weather_forecast
     from tools.stubs import get_energy_news
     from tools.stubs import get_lmp_prices
+    from tools.stubs import get_henry_hub_price
+    from tools.stubs import detect_anomaly, get_demand_forecast, get_interconnection_flows
     console.print("[yellow]⚠  STUB MODE — using fake data[/yellow]")
 else:
     from tools.grid import get_grid_demand, get_generation_mix
     from tools.weather import get_weather_alerts, get_weather_forecast
     from tools.news import get_energy_news
-    from tools.market import get_lmp_prices
+    from tools.market import get_lmp_prices, get_henry_hub_price
+    # v2 tools — import when available, stub until PR merges
+    try:
+        from tools.anomaly import detect_anomaly
+    except ImportError:
+        from tools.stubs import detect_anomaly
+    try:
+        from tools.forecast import get_demand_forecast
+    except ImportError:
+        from tools.stubs import get_demand_forecast
+    try:
+        from tools.intercon import get_interconnection_flows
+    except ImportError:
+        from tools.stubs import get_interconnection_flows
 
 from tools.alert import send_alert
 
 ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
 MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
-MAX_TOOL_WORKERS = 8
+MAX_TOOL_WORKERS = 12
 
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
@@ -45,13 +61,17 @@ _session_output = 0
 # ── Tool registry ──────────────────────────────────────────────────────────────
 
 TOOLS = {
-    "get_grid_demand":          get_grid_demand,
-    "get_generation_mix":       get_generation_mix,
-    "get_weather_alerts":       get_weather_alerts,
-    "get_weather_forecast":     get_weather_forecast,
-    "get_energy_news":          get_energy_news,
-    "get_lmp_prices":           get_lmp_prices,
-    "send_alert":               send_alert,
+    "get_grid_demand":           get_grid_demand,
+    "get_generation_mix":        get_generation_mix,
+    "get_weather_alerts":        get_weather_alerts,
+    "get_weather_forecast":      get_weather_forecast,
+    "get_energy_news":           get_energy_news,
+    "get_lmp_prices":            get_lmp_prices,
+    "get_henry_hub_price":       get_henry_hub_price,
+    "detect_anomaly":            detect_anomaly,
+    "get_demand_forecast":       get_demand_forecast,
+    "get_interconnection_flows": get_interconnection_flows,
+    "send_alert":                send_alert,
 }
 
 # Anthropic tool schema format (input_schema, not parameters)
@@ -84,6 +104,39 @@ TOOL_SCHEMAS = [
     {
         "name": "get_lmp_prices",
         "description": "Get current-hour NYISO day-ahead Locational Marginal Prices ($/MWh) by zone, plus zone average and spread.",
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "get_henry_hub_price",
+        "description": "Get the current Henry Hub natural gas spot price ($/MMBtu) and day-over-day change.",
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "detect_anomaly",
+        "description": "Run Z-score anomaly detection on current demand (MW) and LMP prices. Flags when |Z| > 2.0.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "demand_mw": {
+                    "type": "number",
+                    "description": "Current grid demand in megawatts.",
+                },
+                "lmp_prices": {
+                    "type": "object",
+                    "description": "Dict of zone → price ($/MWh), e.g. {\"NYC\": 187.42, \"LONGIL\": 172.18}.",
+                },
+            },
+            "required": ["demand_mw", "lmp_prices"],
+        },
+    },
+    {
+        "name": "get_demand_forecast",
+        "description": "Get the EIA 24-hour hourly demand forecast for NYISO, including peak hour and MW.",
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "get_interconnection_flows",
+        "description": "Get current MW flows on NYISO ↔ PJM and NYISO ↔ ISO-NE tie-lines. Positive = exporting, negative = importing.",
         "input_schema": {"type": "object", "properties": {}, "required": []},
     },
     {
@@ -151,16 +204,18 @@ def _print_tool_table(tool_results: list):
     console.print(table)
 
 def _print_token_usage(run_in: int, run_out: int):
+    run_cost     = (run_in / 1_000_000) * 3.00 + (run_out / 1_000_000) * 15.00
+    session_cost = (_session_input / 1_000_000) * 3.00 + (_session_output / 1_000_000) * 15.00
     console.print(
-        f"[dim]tokens this run — input: {run_in:,}  output: {run_out:,}  "
-        f"| session total — input: {_session_input:,}  output: {_session_output:,}[/dim]"
+        f"[dim]tokens this run — input: {run_in:,}  output: {run_out:,}  cost: ${run_cost:.4f}  "
+        f"| session — input: {_session_input:,}  output: {_session_output:,}  cost: ${session_cost:.4f}[/dim]"
     )
 
 def _print_briefing(content: str):
     level = "GREEN"
-    if "🔴" in content or "RED" in content.upper().split("RISK")[0][:20]:
+    if "🔴" in content or re.search(r'\bRED\b', content[:60], re.IGNORECASE):
         level = "RED"
-    elif "🟡" in content or "YELLOW" in content.upper().split("RISK")[0][:20]:
+    elif "🟡" in content or re.search(r'\bYELLOW\b', content[:60], re.IGNORECASE):
         level = "YELLOW"
 
     color, emoji = RISK_STYLES.get(level, ("white", "⚪"))
