@@ -3,8 +3,9 @@ import os
 import time
 import requests
 
-NTFY_URL = "https://ntfy.sh/gridwatch-ismael"
-STATE_FILE = "/tmp/gridwatch_alert_state.json"
+_ntfy_topic = os.environ.get("NTFY_TOPIC", "gridwatch-ismael")
+NTFY_URL    = f"https://ntfy.sh/{_ntfy_topic}"
+STATE_FILE  = "/tmp/gridwatch_alert_state.json"
 
 PRIORITY = {
     "RED":    ("urgent", "red_circle"),
@@ -63,7 +64,7 @@ def send_alert(risk_level: str, summary: str) -> str:
     GREEN skips the push. Repeated same-level alerts are suppressed during
     the cooldown window (RED: 15 min, YELLOW: 60 min). Escalation always fires.
     """
-    level = risk_level.strip().upper()
+    level = risk_level.strip().upper().replace("\n", "").replace("\r", "")
 
     if level == "GREEN":
         return "No alert sent — risk level is GREEN."
