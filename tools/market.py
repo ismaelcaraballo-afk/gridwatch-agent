@@ -8,7 +8,7 @@ import requests
 
 # NYISO OASIS publishes day-ahead zonal LMPs as a daily CSV (no key required).
 # Index of feeds: http://mis.nyiso.com/public/P-2Alist.htm
-NYISO_OASIS_BASE = "http://mis.nyiso.com/public/csv/damlbmp"
+NYISO_OASIS_BASE = "https://mis.nyiso.com/public/csv/damlbmp"
 HEADERS = {"User-Agent": "gridwatch-agent/1.0 (energy ops briefing tool)"}
 
 # NYISO timestamps in OASIS CSVs are wall-clock Eastern (no offset in the field).

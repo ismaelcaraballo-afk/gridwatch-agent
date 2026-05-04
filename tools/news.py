@@ -1,5 +1,4 @@
-import requests
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
 
 from tools.http import get_with_backoff
 
