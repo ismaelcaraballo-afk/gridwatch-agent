@@ -110,3 +110,22 @@ def get_interconnection_flows() -> str:
         "  Net position: importing 860 MW from neighbors\n"
         "  Detail: NYISO is drawing from PJM — regional supply dependency present."
     )
+
+def trigger_demand_response(forecast_peak_mw: float, forecast_peak_time: str, current_mw: float) -> str:
+    return (
+        f"Demand response ACTIVATED — signal sent to enrolled customers via gridwatch-dr. "
+        f"Forecast peak: {forecast_peak_mw:,.0f} MW at {forecast_peak_time}. "
+        f"Load reduction requested immediately."
+    )
+
+def evaluate_maintenance_schedule(forecast_peak_mw: float, forecast_peak_time: str) -> str:
+    return (
+        "Maintenance schedule evaluation:\n"
+        "  Ravenswood Unit 3 (2026-04-26 14:00–18:00) — POSTPONE\n"
+        "    Capacity offline: 950 MW | forecast peak 19,400 MW at 2026-04-26 18:00 "
+        "falls within this window. Recommend rescheduling to 23:00–06:00.\n"
+        "    Task: Turbine blade inspection and cooling system flush\n"
+        "  Astoria Energy II (2026-04-26 22:00–02:00) — APPROVE\n"
+        "    Capacity offline: 500 MW | forecast peak does not overlap this window.\n"
+        "  Summary: 1 window(s) APPROVED, 1 window(s) POSTPONED."
+    )

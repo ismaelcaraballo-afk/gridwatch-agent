@@ -25,6 +25,7 @@ if USE_STUBS:
     from tools.stubs import get_lmp_prices
     from tools.stubs import get_henry_hub_price
     from tools.stubs import detect_anomaly, get_demand_forecast, get_interconnection_flows
+    from tools.stubs import trigger_demand_response, evaluate_maintenance_schedule
     console.print("[yellow]⚠  STUB MODE — using fake data[/yellow]")
 else:
     from tools.grid import get_grid_demand, get_generation_mix
@@ -44,6 +45,8 @@ else:
         from tools.intercon import get_interconnection_flows
     except ImportError:
         from tools.stubs import get_interconnection_flows
+    from tools.demand_response import trigger_demand_response
+    from tools.scheduler import evaluate_maintenance_schedule
 
 from tools.alert import send_alert
 
@@ -70,8 +73,10 @@ TOOLS = {
     "get_henry_hub_price":       get_henry_hub_price,
     "detect_anomaly":            detect_anomaly,
     "get_demand_forecast":       get_demand_forecast,
-    "get_interconnection_flows": get_interconnection_flows,
-    "send_alert":                send_alert,
+    "get_interconnection_flows":    get_interconnection_flows,
+    "trigger_demand_response":      trigger_demand_response,
+    "evaluate_maintenance_schedule": evaluate_maintenance_schedule,
+    "send_alert":                   send_alert,
 }
 
 # Anthropic tool schema format (input_schema, not parameters)
@@ -138,6 +143,46 @@ TOOL_SCHEMAS = [
         "name": "get_interconnection_flows",
         "description": "Get current MW flows on NYISO ↔ PJM and NYISO ↔ ISO-NE tie-lines. Positive = exporting, negative = importing.",
         "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "trigger_demand_response",
+        "description": "Activate demand response — fire a load-reduction signal to enrolled customers when forecast peak exceeds 18,000 MW. Call this when get_demand_forecast shows a dangerous peak ahead. The agent decides whether to trigger; this tool executes the action.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "forecast_peak_mw": {
+                    "type": "number",
+                    "description": "Forecast peak demand in MW from get_demand_forecast.",
+                },
+                "forecast_peak_time": {
+                    "type": "string",
+                    "description": "ISO timestamp of forecast peak (e.g. '2026-05-04 18:00 UTC').",
+                },
+                "current_mw": {
+                    "type": "number",
+                    "description": "Current actual demand in MW from get_grid_demand.",
+                },
+            },
+            "required": ["forecast_peak_mw", "forecast_peak_time", "current_mw"],
+        },
+    },
+    {
+        "name": "evaluate_maintenance_schedule",
+        "description": "Evaluate planned maintenance windows against the demand forecast. Returns APPROVE or POSTPONE decisions for each scheduled unit outage, with reasoning. Call this after get_demand_forecast so you have the peak data.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "forecast_peak_mw": {
+                    "type": "number",
+                    "description": "Forecast peak demand in MW.",
+                },
+                "forecast_peak_time": {
+                    "type": "string",
+                    "description": "ISO timestamp of forecast peak.",
+                },
+            },
+            "required": ["forecast_peak_mw", "forecast_peak_time"],
+        },
     },
     {
         "name": "send_alert",
