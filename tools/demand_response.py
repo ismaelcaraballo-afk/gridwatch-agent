@@ -42,7 +42,7 @@ def trigger_demand_response(
         pass
 
     safe_time = str(forecast_peak_time).replace("\n", "").replace("\r", "")[:30]
-    delta_pct = ((forecast_peak_mw - current_mw) / current_mw) * 100
+    delta_pct = ((forecast_peak_mw - current_mw) / current_mw) * 100 if current_mw > 0 else 100.0
     message = (
         f"REDUCE LOAD NOW — Forecast peak {forecast_peak_mw:,.0f} MW at {safe_time} "
         f"({delta_pct:.0f}% above current {current_mw:,.0f} MW). "

@@ -54,7 +54,15 @@ ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
 MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 MAX_TOOL_WORKERS = 12
 
-client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+_openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+if _openrouter_key and os.environ.get("USE_OPENROUTER", "false").lower() == "true":
+    client = anthropic.Anthropic(
+        api_key=_openrouter_key,
+        base_url="https://openrouter.ai/api/v1",
+        default_headers={"HTTP-Referer": "gridwatch-agent"},
+    )
+else:
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
 # ── Session token tracking ─────────────────────────────────────────────────────
 
