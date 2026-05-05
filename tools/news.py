@@ -1,6 +1,4 @@
 import json
-import re
-from collections import Counter
 from datetime import date
 from pathlib import Path
 
@@ -9,12 +7,6 @@ import defusedxml.ElementTree as ET
 from tools.http import get_with_backoff
 
 SENTIMENT_HISTORY_FILE = Path(__file__).parent.parent / ".sentiment_history.json"
-
-_STOPWORDS = {
-    "the", "a", "an", "and", "or", "in", "on", "at", "to", "for", "of", "as",
-    "is", "are", "was", "were", "it", "its", "with", "from", "by", "that",
-    "this", "be", "been", "has", "have", "will", "how", "what", "new", "not",
-}
 
 RSS_FEEDS = [
     ("EIA Today in Energy", "https://www.eia.gov/rss/todayinenergy.xml"),
@@ -90,7 +82,6 @@ def get_news_sentiment() -> str:
     pct = {k: round(v / total * 100) for k, v in counts.items()}
     today_str = date.today().isoformat()
 
-    # Load history and compute trend
     try:
         history = json.loads(SENTIMENT_HISTORY_FILE.read_text()) if SENTIMENT_HISTORY_FILE.exists() else {}
     except Exception:
@@ -125,23 +116,3 @@ def get_news_sentiment() -> str:
         sentiment_str += "\nSentiment shift: first reading — no prior day to compare"
 
     return sentiment_str
-
-
-def get_trending_keywords() -> str:
-    """Return the top 3 most repeated words across today's energy headlines."""
-    raw = get_energy_news()
-    if raw == "No energy news headlines available at this time.":
-        return "Trending keywords: no data available"
-
-    # Strip source tags, dates, and URLs — keep only headline text
-    text = re.sub(r"https?://\S+", "", raw)
-    text = re.sub(r"\[.*?\](\(.*?\))?", "", text).lower()
-    words = re.findall(r"\b[a-z]{4,}\b", text)
-    filtered = [w for w in words if w not in _STOPWORDS]
-
-    if not filtered:
-        return "Trending keywords: none identified"
-
-    top = Counter(filtered).most_common(3)
-    keywords = ", ".join(f"{word} ({count}x)" for word, count in top)
-    return f"Trending: {keywords}"
