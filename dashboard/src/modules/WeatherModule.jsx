@@ -9,8 +9,8 @@ export function WeatherModule({ weather }) {
       <h2 className="module__title">Active alerts</h2>
       {alerts.length ? (
         <ul className="weather-alert-list">
-          {alerts.map((a, i) => (
-            <li key={i}>
+          {alerts.map((a) => (
+            <li key={a.event}>
               <span className="weather-severity">{a.severity}</span>{' '}
               <span>{a.event}</span>
             </li>
@@ -31,8 +31,8 @@ export function WeatherModule({ weather }) {
               </tr>
             </thead>
             <tbody>
-              {forecast.map((row, i) => (
-                <tr key={i}>
+              {forecast.map((row) => (
+                <tr key={row.time}>
                   <td>{row.time}</td>
                   <td>{row.temp_f}</td>
                   <td>{row.condition}</td>

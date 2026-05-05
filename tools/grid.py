@@ -54,13 +54,13 @@ def get_grid_demand() -> str:
     demand = int(latest.get("value") or 0)
 
     lines = [f"Grid demand — {REGION_NAME} as of {period}:"]
-    lines.append(f"  Current demand: {demand:,} MWh")
+    lines.append(f"  Current demand: {demand:,} MW")
 
     if len(data) >= 5:
         avg = sum(int(r.get("value") or 0) for r in data) // len(data)
         pct_diff = ((demand - avg) / avg * 100) if avg else 0
         direction = "above" if pct_diff >= 0 else "below"
-        lines.append(f"  5-hour avg: {avg:,} MWh ({abs(pct_diff):.1f}% {direction} recent avg)")
+        lines.append(f"  5-hour avg: {avg:,} MW ({abs(pct_diff):.1f}% {direction} recent avg)")
 
     return "\n".join(lines)
 

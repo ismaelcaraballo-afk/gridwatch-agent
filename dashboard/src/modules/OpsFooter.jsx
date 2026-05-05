@@ -22,8 +22,8 @@ export function OpsFooter({ recommendation, alertSent, actions, meta }) {
         <h3>Maintenance decisions</h3>
         {maint.length ? (
           <ul className="maint-list">
-            {maint.map((row, i) => (
-              <li key={i}>
+            {maint.map((row) => (
+              <li key={row.unit}>
                 <strong>{row.unit}</strong> — {row.decision}
                 {row.reason ? <span className="maint-reason"> · {row.reason}</span> : null}
               </li>
