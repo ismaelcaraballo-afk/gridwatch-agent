@@ -29,3 +29,52 @@ def get_energy_news() -> str:
     if not headlines:
         return "No energy news headlines available at this time."
     return "\n".join(headlines)
+
+
+_SENTIMENT_KEYWORDS = {
+    "bearish": [
+        "spike", "surge", "crisis", "shortage", "outage", "disruption", "warning",
+        "alert", "conflict", "sanctions", "cut", "decline", "risk", "threat",
+        "record high", "ban", "war", "fail", "loss", "deficit", "curtail",
+    ],
+    "cautious": [
+        "tight", "concern", "elevated", "above average", "potential", "possible",
+        "monitor", "uncertain", "volatile", "watch", "delay", "stall", "oppose",
+        "slow", "challenge", "pressure",
+    ],
+    "bullish": [
+        "growth", "expand", "investment", "record low", "renewable", "clean",
+        "new", "open", "ships", "launch", "advance", "capacity", "efficient",
+        "approve", "gain", "increase", "boost", "strong",
+    ],
+}
+
+
+def get_news_sentiment() -> str:
+    """Score energy headlines by sentiment. Returns formatted string of percentages."""
+    raw = get_energy_news()
+    if raw == "No energy news headlines available at this time.":
+        return "News sentiment — Bearish: 0% | Cautious: 0% | Neutral: 100% | Bullish: 0%"
+
+    headlines = [line.split("] ", 1)[-1].lower() for line in raw.splitlines() if line]
+    counts = {"bearish": 0, "cautious": 0, "neutral": 0, "bullish": 0}
+
+    for headline in headlines:
+        matched = None
+        for bucket, keywords in _SENTIMENT_KEYWORDS.items():
+            if any(kw in headline for kw in keywords):
+                matched = bucket
+                break
+        counts[matched or "neutral"] += 1
+
+    total = len(headlines)
+    if total == 0:
+        return "News sentiment — Bearish: 0% | Cautious: 0% | Neutral: 100% | Bullish: 0%"
+
+    pct = {k: round(v / total * 100) for k, v in counts.items()}
+    return (
+        f"News sentiment — Bearish: {pct['bearish']}% | "
+        f"Cautious: {pct['cautious']}% | "
+        f"Neutral: {pct['neutral']}% | "
+        f"Bullish: {pct['bullish']}%"
+    )
