@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import requests
+from tools.http import get_with_backoff
 
 # NYISO OASIS publishes day-ahead zonal LMPs as a daily CSV (no key required).
 # Index of feeds: http://mis.nyiso.com/public/P-2Alist.htm
@@ -108,20 +109,21 @@ def get_lmp_prices() -> str:
 def get_henry_hub_price() -> str:
     """Get the most recent Henry Hub natural gas spot price ($/MMBtu) from EIA."""
     key = os.environ["EIA_API_KEY"]
-    resp = requests.get(
-        f"{EIA_BASE}/natural-gas/pri/fut/data",
-        params={
-            "api_key": key,
-            "frequency": "daily",
-            "data[0]": "value",
-            "facets[series][]": "RNGWHHD",
-            "sort[0][column]": "period",
-            "sort[0][direction]": "desc",
-            "length": 5,
-        },
-        timeout=30,
-    )
-    resp.raise_for_status()
+    try:
+        resp = get_with_backoff(
+            f"{EIA_BASE}/natural-gas/pri/fut/data",
+            params={
+                "api_key": key,
+                "frequency": "daily",
+                "data[0]": "value",
+                "facets[series][]": "RNGWHHD",
+                "sort[0][column]": "period",
+                "sort[0][direction]": "desc",
+                "length": 5,
+            },
+        )
+    except Exception as e:
+        return f"Henry Hub price unavailable ({e})."
     data = resp.json().get("response", {}).get("data", [])
     if not data:
         return "Henry Hub price unavailable."
@@ -155,25 +157,26 @@ def get_fleet_data() -> str:
     To use actual plant heat rates, replace HEAT_RATES with a plantid-keyed lookup.
     """
     key = os.environ["EIA_API_KEY"]
-    resp = requests.get(
-        f"{EIA_BASE}/electricity/operating-generator-capacity/data",
-        params={
-            "api_key": key,
-            "frequency": "monthly",
-            "data[0]": "nameplate-capacity-mw",
-            "data[1]": "net-summer-capacity-mw",
-            "data[2]": "county",
-            "facets[stateid][]": "NY",
-            "facets[energy_source_code][]": "NG",
-            "facets[balancing_authority_code][]": "NYIS",
-            "facets[status][]": "OP",
-            "sort[0][column]": "period",
-            "sort[0][direction]": "desc",
-            "length": 200,
-        },
-        timeout=30,
-    )
-    resp.raise_for_status()
+    try:
+        resp = get_with_backoff(
+            f"{EIA_BASE}/electricity/operating-generator-capacity/data",
+            params={
+                "api_key": key,
+                "frequency": "monthly",
+                "data[0]": "nameplate-capacity-mw",
+                "data[1]": "net-summer-capacity-mw",
+                "data[2]": "county",
+                "facets[stateid][]": "NY",
+                "facets[energy_source_code][]": "NG",
+                "facets[balancing_authority_code][]": "NYIS",
+                "facets[status][]": "OP",
+                "sort[0][column]": "period",
+                "sort[0][direction]": "desc",
+                "length": 200,
+            },
+        )
+    except Exception as e:
+        return f"NYC fleet data unavailable ({e})."
     rows = resp.json().get("response", {}).get("data", [])
     if not rows:
         return "No fleet data available."
@@ -230,11 +233,9 @@ def get_fleet_data() -> str:
 def _fetch_dam_csv(yyyymmdd: str):
     url = f"{NYISO_OASIS_BASE}/{yyyymmdd}damlbmp_zone.csv"
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=30)
-        if resp.status_code != 200:
-            return None
+        resp = get_with_backoff(url, headers=HEADERS)
         return resp.text
-    except requests.RequestException:
+    except Exception:
         return None
 
 

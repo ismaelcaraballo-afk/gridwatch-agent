@@ -84,7 +84,7 @@ def get_demand_forecast() -> str:
     if current_mw:
         delta_pct = ((peak_mw - current_mw) / current_mw) * 100
         direction = "above" if delta_pct >= 0 else "below"
-        delta_str = f"{abs(delta_pct):.1f}% {direction} current actual ({current_mw:,} MWh)"
+        delta_str = f"{abs(delta_pct):.1f}% {direction} current actual ({current_mw:,} MW)"
     else:
         delta_str = "current actual unavailable"
 
@@ -94,9 +94,9 @@ def get_demand_forecast() -> str:
         mw = int(row["value"] or 0)
         hour = period[11:16]
         date = period[:10]
-        lines.append(f"  {date} {hour}  {mw:,} MWh")
+        lines.append(f"  {date} {hour}  {mw:,} MW")
 
-    lines.append(f"  Peak: {peak_mw:,} MWh at {peak_period} UTC")
+    lines.append(f"  Peak: {peak_mw:,} MW at {peak_period} UTC")
     lines.append(f"  Sustained demand window (≥90% of peak): {window_str}")
     lines.append(f"  Forecast peak vs current: {delta_str}")
     return "\n".join(lines)
