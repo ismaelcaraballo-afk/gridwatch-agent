@@ -1,5 +1,6 @@
 # GridWatch v2 — Team Assignment Map
 *Sprint: 2026-05-02 → 2026-05-09 | Presentation: Saturday May 9*
+*NOTE: Thursday May 7 and Friday May 8 are off. Wednesday May 6 is the last working day.*
 
 ---
 
@@ -16,32 +17,32 @@ No human interaction at any step. LLM decides everything from live data.
 SPRINT WEEK — MAY 2 TO MAY 9
 ─────────────────────────────────────────────────────────────────────────
 
-     SAT 5/2   SUN 5/3   MON 5/4   TUE 5/5   WED 5/6   THU 5/7   FRI 5/8
-     TODAY     BUILD     BUILD     GATE 1    GATE 2    INTEGRATE  DEMO
-                                   (solo)    (wired)   TEST       REHEARSAL
+     SAT 5/2   SUN 5/3   MON 5/4   TUE 5/5        WED 5/6         THU 5/7  FRI 5/8
+     TODAY     BUILD     BUILD     GATE 1         LAST DAY        OFF      OFF
+                                   (solo)         EVERYTHING DONE
 
-JUAN  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░[PR]
+JUAN  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░[PR Tue]
       detect_anomaly()
       tools/anomaly.py
       branch: feature/juan-anomaly
 
-EDWIN ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░[PR]
+EDWIN ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░[PR Tue]
       get_demand_forecast()
       tools/forecast.py
       branch: feature/edwin-forecast
 
-CHRSN ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░[PR]
+CHRSN ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░[PR Tue]
       get_interconnection_flows()
       tools/intercon.py
       branch: feature/christian-flows
 
-MCHEL ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░[PR]
-      server.py  (Wed 5/6)
-      dashboard/ React 5 modules (Thu-Fri)
+MCHEL ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░[DONE Wed]
+      server.py by Tue EOD
+      dashboard/ all 5 modules by Wed EOD
       branch: feature/michael-dashboard
 
-ISMAL ──────────────── MERGE & INTEGRATE ────────────────────────[DEMO]
-      reviews PRs, merges Tue-Wed, integration test Thu, rehearsal Fri
+ISMAL ──────────── MERGE & INTEGRATE ──────────────────────[DEMO READY Wed]
+      reviews PRs, merges Tue-Wed, full integration test Wed, demo run Wed
 ```
 
 ---
@@ -178,9 +179,10 @@ Same CSV pattern as the LMP tool already in `tools/market.py` — look at
 
 **Branch:** `feature/michael-dashboard`
 **Files:** `server.py`, `dashboard/` (React app)
-**Due:** server.py Wednesday May 6, full dashboard Friday May 8
+**Due:** server.py Tuesday May 5, full dashboard Wednesday May 6 EOD
+**NOTE: Thu/Fri are off. Wednesday is the last working day. Dashboard must be done by then.**
 
-### Part 1 — server.py (Wed May 6)
+### Part 1 — server.py (Tue May 5)
 
 Thin Flask/FastAPI wrapper. One endpoint. Runs the agent loop once and
 returns structured JSON instead of printing to terminal.
@@ -263,6 +265,19 @@ briefing text parsed, no dependency on the new tools.
 same `get_with_backoff` import from `tools/http.py`, same string return format.
 
 ---
+
+## Sprint Timeline
+
+```
+Sat May 2  — Assignments sent. Everyone starts.
+Sun May 3  — Build day.
+Mon May 4  — Gate 1: each tool works standalone.
+Tue May 5  — Gate 2: PRs open. Tools wired into agent. Michael: server.py live.
+Wed May 6  — ALL PRs merged. Dashboard all 5 modules done. Full demo run. DONE.
+Thu May 7  — OFF
+Fri May 8  — OFF
+Sat May 9  — PRESENT
+```
 
 ## What the Demo Looks Like
 

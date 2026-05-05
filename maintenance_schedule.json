@@ -1,0 +1,31 @@
+{
+  "windows": [
+    {
+      "unit": "Ravenswood Unit 3",
+      "capacity_mw": 950,
+      "date": "2026-05-06",
+      "start_time": "14:00",
+      "end_time": "18:00",
+      "type": "planned",
+      "description": "Turbine blade inspection and cooling system flush"
+    },
+    {
+      "unit": "Astoria Energy II",
+      "capacity_mw": 500,
+      "date": "2026-05-06",
+      "start_time": "22:00",
+      "end_time": "02:00",
+      "type": "planned",
+      "description": "Transformer relay testing"
+    },
+    {
+      "unit": "Bowline Unit 1",
+      "capacity_mw": 600,
+      "date": "2026-05-07",
+      "start_time": "08:00",
+      "end_time": "12:00",
+      "type": "planned",
+      "description": "Annual boiler inspection"
+    }
+  ]
+}
