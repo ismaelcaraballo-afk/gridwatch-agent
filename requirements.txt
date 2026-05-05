@@ -1,5 +1,7 @@
 requests
+urllib3>=1.26,<2
 python-dotenv
 rich
 anthropic
 defusedxml
+flask
