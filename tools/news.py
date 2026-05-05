@@ -1,6 +1,20 @@
+import json
+import re
+from collections import Counter
+from datetime import date
+from pathlib import Path
+
 import defusedxml.ElementTree as ET
 
 from tools.http import get_with_backoff
+
+SENTIMENT_HISTORY_FILE = Path(__file__).parent.parent / ".sentiment_history.json"
+
+_STOPWORDS = {
+    "the", "a", "an", "and", "or", "in", "on", "at", "to", "for", "of", "as",
+    "is", "are", "was", "were", "it", "its", "with", "from", "by", "that",
+    "this", "be", "been", "has", "have", "will", "how", "what", "new", "not",
+}
 
 RSS_FEEDS = [
     ("EIA Today in Energy", "https://www.eia.gov/rss/todayinenergy.xml"),
@@ -20,9 +34,11 @@ def get_energy_news() -> str:
             for item in items:
                 title = item.findtext("title", "").strip()
                 pub_date = item.findtext("pubDate", "").strip()
+                link = item.findtext("link", "").strip()
                 if title:
                     date_str = f" ({pub_date})" if pub_date else ""
-                    headlines.append(f"[{name}]{date_str} {title}")
+                    link_str = f"\n    {link}" if link else ""
+                    headlines.append(f"[{name}]{date_str} {title}{link_str}")
         except Exception:
             continue
 
@@ -72,9 +88,60 @@ def get_news_sentiment() -> str:
         return "News sentiment — Bearish: 0% | Cautious: 0% | Neutral: 100% | Bullish: 0%"
 
     pct = {k: round(v / total * 100) for k, v in counts.items()}
-    return (
+    today_str = date.today().isoformat()
+
+    # Load history and compute trend
+    try:
+        history = json.loads(SENTIMENT_HISTORY_FILE.read_text()) if SENTIMENT_HISTORY_FILE.exists() else {}
+    except Exception:
+        history = {}
+
+    yesterday = {k: v for k, v in history.items() if k != "date"} if history else None
+    history = {**pct, "date": today_str}
+    try:
+        SENTIMENT_HISTORY_FILE.write_text(json.dumps(history))
+    except Exception:
+        pass
+
+    sentiment_str = (
         f"News sentiment — Bearish: {pct['bearish']}% | "
         f"Cautious: {pct['cautious']}% | "
         f"Neutral: {pct['neutral']}% | "
         f"Bullish: {pct['bullish']}%"
     )
+
+    if yesterday and history.get("date") != yesterday.get("date"):
+        bear_shift = pct["bearish"] - yesterday.get("bearish", pct["bearish"])
+        bull_shift = pct["bullish"] - yesterday.get("bullish", pct["bullish"])
+        if abs(bear_shift) >= 5:
+            direction = "↑" if bear_shift > 0 else "↓"
+            trend = f"Bearish {direction}{abs(bear_shift)}% vs yesterday — mood {'deteriorating' if bear_shift > 0 else 'improving'}"
+            sentiment_str += f"\nSentiment shift: {trend}"
+        elif abs(bull_shift) >= 5:
+            direction = "↑" if bull_shift > 0 else "↓"
+            trend = f"Bullish {direction}{abs(bull_shift)}% vs yesterday — mood {'improving' if bull_shift > 0 else 'deteriorating'}"
+            sentiment_str += f"\nSentiment shift: {trend}"
+    elif not yesterday:
+        sentiment_str += "\nSentiment shift: first reading — no prior day to compare"
+
+    return sentiment_str
+
+
+def get_trending_keywords() -> str:
+    """Return the top 3 most repeated words across today's energy headlines."""
+    raw = get_energy_news()
+    if raw == "No energy news headlines available at this time.":
+        return "Trending keywords: no data available"
+
+    # Strip source tags, dates, and URLs — keep only headline text
+    text = re.sub(r"https?://\S+", "", raw)
+    text = re.sub(r"\[.*?\](\(.*?\))?", "", text).lower()
+    words = re.findall(r"\b[a-z]{4,}\b", text)
+    filtered = [w for w in words if w not in _STOPWORDS]
+
+    if not filtered:
+        return "Trending keywords: none identified"
+
+    top = Counter(filtered).most_common(3)
+    keywords = ", ".join(f"{word} ({count}x)" for word, count in top)
+    return f"Trending: {keywords}"
