@@ -1,8 +1,10 @@
-"""Flask API: run GridWatch once and expose structured JSON for the dashboard."""
+"""Flask API: GridWatch briefing — raw text (step 1) and dashboard JSON contract (step 2)."""
 
 from __future__ import annotations
 
+import os
 import re
+from datetime import datetime, timezone
 from typing import Any
 
 from dotenv import load_dotenv
@@ -14,9 +16,18 @@ from agent import run_gridwatch
 
 app = Flask(__name__)
 
+MODEL_NAME = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+
+FUEL_TO_CONTRACT = {
+    "Natural Gas": "natural_gas_pct",
+    "Nuclear": "nuclear_pct",
+    "Wind": "wind_pct",
+    "Hydro": "hydro_pct",
+    "Solar": "solar_pct",
+}
+
 
 def _latest_by_tool(tool_calls: list[dict]) -> dict[str, str]:
-    """Last result wins per tool name (execution order)."""
     out: dict[str, str] = {}
     for row in tool_calls:
         name = row.get("name") or ""
@@ -24,7 +35,7 @@ def _latest_by_tool(tool_calls: list[dict]) -> dict[str, str]:
     return out
 
 
-def _parse_risk_level(briefing: str) -> str:
+def _risk_level(briefing: str) -> str:
     head = (briefing or "")[:1200]
     if re.search(r"\bRED\b|🔴", head, re.I):
         return "RED"
@@ -33,192 +44,275 @@ def _parse_risk_level(briefing: str) -> str:
     return "GREEN"
 
 
-def _parse_risk_factors(briefing: str) -> list[str]:
-    factors: list[str] = []
-    for raw in (briefing or "").splitlines():
-        s = raw.strip()
-        m = re.match(r"^[-•*]\s+(.+)", s) or re.match(r"^\d+[.)]\s+(.+)", s)
-        if m:
-            factors.append(m.group(1).strip())
-    dedup = []
-    seen = set()
-    for f in factors:
-        if f and f not in seen:
-            seen.add(f)
-            dedup.append(f)
-    return dedup[:12]
+def _risk_emoji(level: str) -> str:
+    return {"RED": "🔴", "YELLOW": "🟡", "GREEN": "🟢"}.get(level.upper(), "🟢")
 
 
-def _parse_grid_demand(text: str) -> int | None:
+def _parse_grid_demand_mw(text: str) -> int:
     m = re.search(r"Current demand:\s*([\d,]+)\s*MWh", text or "")
-    if not m:
-        return None
-    return int(m.group(1).replace(",", ""))
+    return int(m.group(1).replace(",", "")) if m else 0
 
 
-def _parse_gen_mix(text: str) -> dict[str, float]:
-    mix: dict[str, float] = {}
+def _parse_generation_mix_pct(text: str) -> dict[str, float]:
+    """Parse tool lines → contract fuel keys (percent)."""
+    found: dict[str, float] = {}
     for line in (text or "").splitlines():
         m = re.match(r"\s*([^:]+):\s*[\d,]+\s*MWh\s+\((\d+\.\d+)%\)", line.strip())
-        if m:
-            mix[m.group(1).strip()] = float(m.group(2))
-    return mix
+        if not m:
+            continue
+        label = m.group(1).strip()
+        pct = float(m.group(2))
+        key = FUEL_TO_CONTRACT.get(label)
+        if key:
+            found[key] = pct
+    base = {
+        "natural_gas_pct": 0.0,
+        "nuclear_pct": 0.0,
+        "wind_pct": 0.0,
+        "hydro_pct": 0.0,
+        "solar_pct": 0.0,
+    }
+    base.update(found)
+    return base
 
 
-def _parse_weather_alerts(text: str) -> list[str]:
+def _renewable_pct(mix: dict[str, float]) -> float:
+    s = mix.get("wind_pct", 0) + mix.get("hydro_pct", 0) + mix.get("solar_pct", 0)
+    return round(s, 1)
+
+
+def _parse_forecast_peak(text: str) -> tuple[int, str]:
+    t = text or ""
+    m = re.search(r"Peak:\s*([\d,]+)\s*MW\s+at\s+([^\n\r]+)", t, re.I)
+    if m:
+        return int(m.group(1).replace(",", "")), m.group(2).strip()
+    m2 = re.search(r"peak[^\d]{0,12}([\d,]+)\s*MW", t, re.I)
+    if m2:
+        return int(m2.group(1).replace(",", "")), ""
+    return 0, ""
+
+
+def _parse_weather_alert_objs(text: str) -> list[dict[str, str]]:
     if not text or "No active alerts" in text:
         return []
-    items: list[str] = []
-    cur: str | None = None
+    out: list[dict[str, str]] = []
     for line in text.splitlines():
         s = line.strip()
-        if not s or "Weather alerts —" in s:
+        m = re.match(r"^\[([^\]]+)\]\s*(.+)$", s)
+        if m and "Weather alerts" not in s:
+            out.append({"severity": m.group(1).strip().upper(), "event": m.group(2).strip()})
+    return out[:20]
+
+
+def _parse_hourly_forecast_rows(text: str, limit: int = 12) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for raw in (text or "").splitlines():
+        line = raw.strip()
+        if not re.match(r"\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}", line):
             continue
-        if re.match(r"^\[", s):
-            if cur:
-                items.append(cur)
-            cur = s
-        elif cur:
-            cur = f"{cur} {s}"
-    if cur:
-        items.append(cur)
-    return items[:20]
+        m = re.match(
+            r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})\s+(\d+)°[Ff]\s+Wind:\s*(.+?)\s{2,}(.+)$",
+            line,
+        )
+        if m:
+            rows.append(
+                {
+                    "time": m.group(1),
+                    "temp_f": int(m.group(2)),
+                    "condition": m.group(4).strip(),
+                }
+            )
+        else:
+            parts = re.split(r"\s{2,}", line)
+            if len(parts) >= 4:
+                t = parts[0]
+                temp_m = re.match(r"(\d+)°[Ff]", parts[1])
+                if temp_m:
+                    rows.append(
+                        {
+                            "time": t,
+                            "temp_f": int(temp_m.group(1)),
+                            "condition": parts[-1].strip(),
+                        }
+                    )
+        if len(rows) >= limit:
+            break
+    return rows
 
 
-
-def _forecast_12h(text: str) -> str:
-    lines = [ln.strip() for ln in (text or "").splitlines() if ln.strip()]
-    if not lines:
-        return "Forecast unavailable."
-    body = lines[1:] if len(lines) > 1 else lines
-    hourly = [ln for ln in body if re.match(r"^\d{4}-\d{2}-\d{2}", ln) or "°" in ln][:12]
-    if not hourly:
-        return " ".join(body[:3]) if body else "Forecast unavailable."
-    return " ".join(hourly[:12])
-
-
-def _parse_market(text: str) -> dict[str, Any]:
-    out = {
-        "lmp_avg": None,
-        "lmp_peak_zone": None,
-        "lmp_peak": None,
-        "spread": None,
-    }
-    if not text:
-        return out
-    avg_m = re.search(r"Zone avg:\s*\$(\d+(?:\.\d+)?)", text)
-    spr_m = re.search(r"Spread[^\$]*\$(\d+(?:\.\d+)?)", text)
-    if avg_m:
-        out["lmp_avg"] = float(avg_m.group(1))
-    if spr_m:
-        out["spread"] = float(spr_m.group(1))
-    zones: list[tuple[str, float]] = []
-    for zm in re.finditer(r"^\s*([^:\n]+?):\s*\$(\d+(?:\.\d+)?)/MWh", text, re.MULTILINE):
+def _parse_lmp_zones(text: str) -> dict[str, float]:
+    zones: dict[str, float] = {}
+    for zm in re.finditer(r"^\s*([^:\n]+?):\s*\$(\d+(?:\.\d+)?)/MWh", text or "", re.MULTILINE):
         name = zm.group(1).strip()
         if name.startswith("→") or "avg" in name.lower():
             continue
-        zones.append((name, float(zm.group(2))))
-    if zones:
-        peak_name, peak_price = max(zones, key=lambda z: z[1])
-        out["lmp_peak_zone"] = peak_name
-        out["lmp_peak"] = peak_price
-    return out
+        zones[name] = float(zm.group(2))
+    return zones
 
 
-def _parse_news_headlines(text: str) -> list[str]:
+def _parse_zone_avg_spread(text: str) -> tuple[float, float]:
+    t = text or ""
+    avg_m = re.search(r"Zone avg:\s*\$(\d+(?:\.\d+)?)", t)
+    spr_m = re.search(r"Spread[^\$]*\$(\d+(?:\.\d+)?)", t)
+    avg = float(avg_m.group(1)) if avg_m else 0.0
+    spread = float(spr_m.group(1)) if spr_m else 0.0
+    return round(avg, 2), round(spread, 2)
+
+
+def _parse_henry_hub(text: str) -> float:
+    m = re.search(r"\$(\d+(?:\.\d+)?)/MMBtu", text or "")
+    return round(float(m.group(1)), 2) if m else 0.0
+
+
+def _parse_news_items(text: str) -> list[dict[str, str]]:
+    out: list[dict[str, str]] = []
     if not text or text.startswith("No energy"):
-        return []
-    lines = []
-    for ln in text.splitlines():
-        s = ln.strip()
+        return out
+    for line in text.splitlines():
+        s = line.strip()
         if not s:
             continue
-        lines.append(s)
-    return lines[:15]
-
-
-def _parse_alert(text: str) -> dict[str, Any]:
-    s = (text or "").strip()
-    if not s:
-        return {"sent": False, "level": "GREEN", "confirmation": "send_alert not invoked in this run."}
-
-    sent = False
-    level = "GREEN"
-
-    if "No alert sent" in s:
-        level = "GREEN"
-        sent = False
-    elif "suppressed" in s.lower() or "delivery failed" in s.lower():
-        sent = False
-        m = re.search(r"\b(RED|YELLOW|GREEN)\b", s)
+        m = re.match(r"^\[([^\]]+)\](?:\s*\([^)]*\))?\s*(.+)$", s)
         if m:
-            level = m.group(1)
-    elif "Alert sent" in s or ("ntfy.sh" in s and "failed" not in s.lower()):
-        sent = True
-        tail = re.search(r"\|\s*(RED|YELLOW|GREEN)\s*\Z", s)
-        if tail:
-            level = tail.group(1)
+            out.append({"source": m.group(1).strip(), "headline": m.group(2).strip()})
         else:
-            m = re.search(r"\b(RED|YELLOW|GREEN)\b", s)
-            if m:
-                level = m.group(1)
-
-    return {"sent": sent, "level": level, "confirmation": s or "No alert data."}
+            out.append({"source": "Feed", "headline": s})
+    return out[:20]
 
 
-def build_briefing_payload(agent_result: dict) -> dict[str, Any]:
-    """Map agent run output to the V2 dashboard JSON contract."""
+def _parse_maintenance(text: str) -> list[dict[str, str]]:
+    items: list[dict[str, str]] = []
+    lines = (text or "").splitlines()
+    i = 0
+    while i < len(lines):
+        m = re.match(
+            r"^\s{2}(.+?)\s+\(\d{4}-\d{2}-\d{2}.+\)\s*—\s*(APPROVE|POSTPONE)",
+            lines[i],
+        )
+        if m:
+            unit = m.group(1).strip()
+            decision = m.group(2)
+            reason_parts: list[str] = []
+            i += 1
+            while i < len(lines) and lines[i].startswith("    "):
+                reason_parts.append(lines[i].strip())
+                i += 1
+            items.append(
+                {
+                    "unit": unit,
+                    "decision": decision,
+                    "reason": " ".join(reason_parts) if reason_parts else "",
+                }
+            )
+            continue
+        i += 1
+    return items
+
+
+def _demand_response_summary(text: str) -> str:
+    s = (text or "").strip()
+    return s if s else "Demand response not invoked this run."
+
+
+def _alert_sent_flag(send_alert_text: str) -> bool:
+    s = send_alert_text or ""
+    if "No alert sent" in s or not s.strip():
+        return False
+    if "suppressed" in s.lower() or "delivery failed" in s.lower():
+        return False
+    return "Alert sent" in s or ("ntfy.sh" in s and "failed" not in s.lower())
+
+
+def _extract_recommendation(briefing: str) -> str:
+    b = briefing or ""
+    m = re.search(
+        r"(?is)\*{0,2}\s*Recommendation\s*:?\*{0,2}\s*(.+?)(?:\n\s*\n|\Z)",
+        b,
+    )
+    if m:
+        return " ".join(m.group(1).split())
+    lines = [ln.strip() for ln in b.splitlines() if ln.strip()]
+    return lines[-1] if lines else "No recommendation extracted."
+
+
+def build_dashboard_contract(agent_result: dict) -> dict[str, Any]:
+    """Exact field names for React dashboard (team contract)."""
     briefing = agent_result.get("briefing") or ""
     tool_calls = agent_result.get("tool_calls") or []
-    err = agent_result.get("error")
     by = _latest_by_tool(tool_calls)
 
     grid_d = by.get("get_grid_demand", "")
     grid_m = by.get("get_generation_mix", "")
+    forecast_txt = by.get("get_demand_forecast", "")
     wx_a = by.get("get_weather_alerts", "")
     wx_f = by.get("get_weather_forecast", "")
     lmp = by.get("get_lmp_prices", "")
+    henry = by.get("get_henry_hub_price", "")
     news = by.get("get_energy_news", "")
-    alert_t = by.get("send_alert", "")
+    dr = by.get("trigger_demand_response", "")
+    maint = by.get("evaluate_maintenance_schedule", "")
+    alert_txt = by.get("send_alert", "")
 
-    demand = _parse_grid_demand(grid_d)
-    gen_mix = _parse_gen_mix(grid_m)
+    level = _risk_level(briefing)
+    gen_mix = _parse_generation_mix_pct(grid_m)
+    peak_mw, peak_time = _parse_forecast_peak(forecast_txt)
+    lmp_by_zone = _parse_lmp_zones(lmp)
+    zone_avg, spread = _parse_zone_avg_spread(lmp)
 
-    market = _parse_market(lmp)
-    payload = {
-        "risk": {
-            "level": _parse_risk_level(briefing),
-            "factors": _parse_risk_factors(briefing)
-            or (["See GRIDWATCH briefing narrative."] if briefing else ["Briefing unavailable."]),
-        },
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    return {
+        "risk": {"level": level, "emoji": _risk_emoji(level)},
         "grid": {
-            "demand_mw": demand if demand is not None else 0,
-            "gen_mix": gen_mix if gen_mix else {},
+            "current_demand_mw": _parse_grid_demand_mw(grid_d),
+            "region": "NYISO",
+            "generation_mix": gen_mix,
+            "renewable_pct": _renewable_pct(gen_mix),
+            "forecast_peak_mw": peak_mw,
+            "forecast_peak_time": peak_time or "",
         },
         "weather": {
-            "active_alerts": _parse_weather_alerts(wx_a),
-            "forecast_12h": _forecast_12h(wx_f),
+            "alerts": _parse_weather_alert_objs(wx_a),
+            "forecast": _parse_hourly_forecast_rows(wx_f, 12),
         },
         "market": {
-            "lmp_avg": round(market["lmp_avg"], 2) if market["lmp_avg"] is not None else 0.0,
-            "lmp_peak_zone": market["lmp_peak_zone"] or "—",
-            "lmp_peak": round(market["lmp_peak"], 2) if market["lmp_peak"] is not None else 0.0,
-            "spread": round(market["spread"], 2) if market["spread"] is not None else 0.0,
+            "lmp_by_zone": lmp_by_zone,
+            "zone_avg_mwh": zone_avg,
+            "spread_mwh": spread,
+            "henry_hub_mmbtu": _parse_henry_hub(henry),
         },
-        "news": {"headlines": _parse_news_headlines(news)},
-        "alert": _parse_alert(alert_t),
+        "news": _parse_news_items(news),
+        "actions": {
+            "demand_response": _demand_response_summary(dr),
+            "maintenance": _parse_maintenance(maint),
+        },
+        "recommendation": _extract_recommendation(briefing),
+        "alert_sent": _alert_sent_flag(alert_txt),
         "meta": {
-            "agent_error": err,
-            "briefing_excerpt": (briefing[:280] + "…") if len(briefing) > 280 else briefing,
+            "timestamp": ts,
+            "model": MODEL_NAME,
+            "run_cost_usd": float(agent_result.get("run_cost_usd") or 0),
         },
     }
-    return payload
+
+
+@app.get("/briefing/raw")
+def briefing_raw():
+    """Step 1 gate: run agent once, return only briefing text (+ error if any)."""
+    result = run_gridwatch(quiet=True)
+    payload = {
+        "briefing": result.get("briefing") or "",
+        "error": result.get("error"),
+    }
+    status = 200 if not result.get("error") else 503
+    return jsonify(payload), status
 
 
 @app.get("/briefing")
 def briefing():
+    """Step 2: full dashboard JSON contract."""
     result = run_gridwatch(quiet=True)
-    payload = build_briefing_payload(result)
+    payload = build_dashboard_contract(result)
     status = 200 if not result.get("error") else 503
     return jsonify(payload), status
 

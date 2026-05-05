@@ -5,20 +5,36 @@ import { GridModule } from './modules/GridModule'
 import { WeatherModule } from './modules/WeatherModule'
 import { MarketModule } from './modules/MarketModule'
 import { NewsModule } from './modules/NewsModule'
+import { OpsFooter } from './modules/OpsFooter'
 
 const emptyPayload = {
-  risk: { level: 'GREEN', factors: [] },
-  grid: { demand_mw: 0, gen_mix: {} },
-  weather: { active_alerts: [], forecast_12h: '' },
-  market: {
-    lmp_avg: 0,
-    lmp_peak_zone: '—',
-    lmp_peak: 0,
-    spread: 0,
+  risk: { level: 'GREEN', emoji: '🟢' },
+  grid: {
+    current_demand_mw: 0,
+    region: 'NYISO',
+    generation_mix: {
+      natural_gas_pct: 0,
+      nuclear_pct: 0,
+      wind_pct: 0,
+      hydro_pct: 0,
+      solar_pct: 0,
+    },
+    renewable_pct: 0,
+    forecast_peak_mw: 0,
+    forecast_peak_time: '',
   },
-  news: { headlines: [] },
-  alert: { sent: false, level: 'GREEN', confirmation: '' },
-  meta: { agent_error: null, briefing_excerpt: '' },
+  weather: { alerts: [], forecast: [] },
+  market: {
+    lmp_by_zone: {},
+    zone_avg_mwh: 0,
+    spread_mwh: 0,
+    henry_hub_mmbtu: 0,
+  },
+  news: [],
+  actions: { demand_response: '', maintenance: [] },
+  recommendation: '',
+  alert_sent: false,
+  meta: { timestamp: '', model: '', run_cost_usd: 0 },
 }
 
 export default function App() {
@@ -35,9 +51,22 @@ export default function App() {
         const res = await fetch('/briefing')
         const json = await res.json()
         if (!cancelled) {
-          setData({ ...emptyPayload, ...json })
-          if (!res.ok && json?.meta?.agent_error) {
-            setFetchError(json.meta.agent_error)
+          setData({
+            ...emptyPayload,
+            ...json,
+            risk: { ...emptyPayload.risk, ...json.risk },
+            grid: { ...emptyPayload.grid, ...json.grid },
+            weather: { ...emptyPayload.weather, ...json.weather },
+            market: { ...emptyPayload.market, ...json.market },
+            actions: {
+              ...emptyPayload.actions,
+              ...json.actions,
+              maintenance: json.actions?.maintenance ?? [],
+            },
+            meta: { ...emptyPayload.meta, ...json.meta },
+          })
+          if (!res.ok) {
+            setFetchError(`Briefing run incomplete (HTTP ${res.status}).`)
           }
         }
       } catch (e) {
@@ -59,7 +88,7 @@ export default function App() {
         <div>
           <h1 className="dashboard__title">GridWatch</h1>
           <p className="dashboard__subtitle">
-            Live briefing — single load from <code>/briefing</code>
+            Contract load from <code>GET /briefing</code>
           </p>
         </div>
         {loading && <span className="dashboard__badge">Loading…</span>}
@@ -71,18 +100,19 @@ export default function App() {
       </header>
 
       <section className="dashboard__grid">
-        <RiskModule risk={data.risk} alert={data.alert} />
+        <RiskModule risk={data.risk} />
         <GridModule grid={data.grid} />
         <WeatherModule weather={data.weather} />
         <MarketModule market={data.market} />
         <NewsModule news={data.news} />
       </section>
 
-      {data.meta?.briefing_excerpt ? (
-        <footer className="dashboard__footer">
-          <strong>Briefing excerpt:</strong> {data.meta.briefing_excerpt}
-        </footer>
-      ) : null}
+      <OpsFooter
+        recommendation={data.recommendation}
+        alertSent={data.alert_sent}
+        actions={data.actions}
+        meta={data.meta}
+      />
     </div>
   )
 }

@@ -327,10 +327,13 @@ def run_gridwatch(max_steps: int = 10, *, quiet: bool = False) -> dict:
         except anthropic.APIError as e:
             if not quiet:
                 console.print(f"[red]✗ API error: {e}[/red]")
+            run_cost = (run_input / 1_000_000) * 3.00 + (run_output / 1_000_000) * 15.00
             return {
                 "briefing": "",
                 "tool_calls": all_tool_calls,
                 "error": f"Agent stopped — API error: {e}",
+                "usage": {"input_tokens": run_input, "output_tokens": run_output},
+                "run_cost_usd": round(run_cost, 4),
             }
 
         # Track tokens
@@ -386,16 +389,22 @@ def run_gridwatch(max_steps: int = 10, *, quiet: bool = False) -> dict:
             if not quiet:
                 _print_briefing(text)
                 _print_token_usage(run_input, run_output)
+            run_cost = (run_input / 1_000_000) * 3.00 + (run_output / 1_000_000) * 15.00
             return {
                 "briefing": text.strip(),
                 "tool_calls": all_tool_calls,
                 "error": None,
+                "usage": {"input_tokens": run_input, "output_tokens": run_output},
+                "run_cost_usd": round(run_cost, 4),
             }
 
+    run_cost = (run_input / 1_000_000) * 3.00 + (run_output / 1_000_000) * 15.00
     return {
         "briefing": "",
         "tool_calls": all_tool_calls,
         "error": "Max steps reached.",
+        "usage": {"input_tokens": run_input, "output_tokens": run_output},
+        "run_cost_usd": round(run_cost, 4),
     }
 
 
