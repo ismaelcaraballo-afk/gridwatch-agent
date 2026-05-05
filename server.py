@@ -29,6 +29,7 @@ FUEL_TO_CONTRACT = {
 
 
 def _latest_by_tool(tool_calls: list[dict]) -> dict[str, str]:
+    # Last call wins — intentional; tools called twice use the most recent result.
     out: dict[str, str] = {}
     for row in tool_calls:
         name = row.get("name") or ""
@@ -36,8 +37,12 @@ def _latest_by_tool(tool_calls: list[dict]) -> dict[str, str]:
     return out
 
 
-def _risk_level(briefing: str) -> str:
-    head = (briefing or "")[:1200]
+def _risk_level(briefing: str, alert_result: str = "") -> str:
+    # Prefer the canonical level reported by send_alert over text-scanning the briefing.
+    for level in ("RED", "YELLOW", "GREEN"):
+        if re.search(rf"\b{level}\b", alert_result or ""):
+            return level
+    head = briefing or ""
     if re.search(r"\bRED\b|🔴", head, re.I):
         return "RED"
     if re.search(r"\bYELLOW\b|🟡", head, re.I):
@@ -50,7 +55,7 @@ def _risk_emoji(level: str) -> str:
 
 
 def _parse_grid_demand_mw(text: str) -> int:
-    m = re.search(r"Current demand:\s*([\d,]+)\s*MWh", text or "")
+    m = re.search(r"Current demand:\s*([\d,]+)\s*MW", text or "")
     return int(m.group(1).replace(",", "")) if m else 0
 
 
@@ -254,7 +259,7 @@ def build_dashboard_contract(agent_result: dict) -> dict[str, Any]:
     maint = by.get("evaluate_maintenance_schedule", "")
     alert_txt = by.get("send_alert", "")
 
-    level = _risk_level(briefing)
+    level = _risk_level(briefing, by.get("send_alert", ""))
     gen_mix = _parse_generation_mix_pct(grid_m)
     peak_mw, peak_time = _parse_forecast_peak(forecast_txt)
     lmp_by_zone = _parse_lmp_zones(lmp)
@@ -318,11 +323,19 @@ def briefing():
     return jsonify(payload), status
 
 
+_ALLOWED_ORIGINS = {
+    "http://localhost:5173",  # Vite dev
+    "http://localhost:3000",  # alt dev port
+}
+
+
 @app.after_request
 def add_cors(resp):
-    resp.headers["Access-Control-Allow-Origin"] = "*"
+    origin = resp.request.environ.get("HTTP_ORIGIN", "")
+    if origin in _ALLOWED_ORIGINS:
+        resp.headers["Access-Control-Allow-Origin"] = origin
     return resp
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(host="127.0.0.1", port=5000, debug=False)

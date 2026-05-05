@@ -264,9 +264,13 @@ def _print_tool_table(tool_results: list):
         table.add_row(fn_name, status, f"{elapsed:.1f}s")
     console.print(table)
 
+_COST_PER_M_IN  = float(os.environ.get("COST_PER_M_IN",  "3.00"))
+_COST_PER_M_OUT = float(os.environ.get("COST_PER_M_OUT", "15.00"))
+
+
 def _print_token_usage(run_in: int, run_out: int):
-    run_cost     = (run_in / 1_000_000) * 3.00 + (run_out / 1_000_000) * 15.00
-    session_cost = (_session_input / 1_000_000) * 3.00 + (_session_output / 1_000_000) * 15.00
+    run_cost     = (run_in / 1_000_000) * _COST_PER_M_IN + (run_out / 1_000_000) * _COST_PER_M_OUT
+    session_cost = (_session_input / 1_000_000) * _COST_PER_M_IN + (_session_output / 1_000_000) * _COST_PER_M_OUT
     console.print(
         f"[dim]tokens this run — input: {run_in:,}  output: {run_out:,}  cost: ${run_cost:.4f}  "
         f"| session — input: {_session_input:,}  output: {_session_output:,}  cost: ${session_cost:.4f}[/dim]"
@@ -274,9 +278,9 @@ def _print_token_usage(run_in: int, run_out: int):
 
 def _print_briefing(content: str):
     level = "GREEN"
-    if "🔴" in content or re.search(r'\bRED\b', content[:60], re.IGNORECASE):
+    if "🔴" in content or re.search(r'\bRED\b', content, re.IGNORECASE):
         level = "RED"
-    elif "🟡" in content or re.search(r'\bYELLOW\b', content[:60], re.IGNORECASE):
+    elif "🟡" in content or re.search(r'\bYELLOW\b', content, re.IGNORECASE):
         level = "YELLOW"
 
     color, emoji = RISK_STYLES.get(level, ("white", "⚪"))
@@ -343,7 +347,7 @@ def run_gridwatch(max_steps: int = 10, *, quiet: bool = False) -> dict:
         except anthropic.APIError as e:
             if not quiet:
                 console.print(f"[red]✗ API error: {e}[/red]")
-            run_cost = (run_input / 1_000_000) * 3.00 + (run_output / 1_000_000) * 15.00
+            run_cost = (run_input / 1_000_000) * _COST_PER_M_IN + (run_output / 1_000_000) * _COST_PER_M_OUT
             return {
                 "briefing": "",
                 "tool_calls": all_tool_calls,
@@ -383,7 +387,7 @@ def run_gridwatch(max_steps: int = 10, *, quiet: bool = False) -> dict:
                     all_tool_calls.append({"name": fn_name, "result": str(result)})
 
             if not quiet:
-                _print_tool_table(tool_results)
+                _print_tool_table(sorted(tool_results, key=lambda x: x[0]))
 
             # Anthropic tool_result format
             messages.append({
@@ -405,7 +409,7 @@ def run_gridwatch(max_steps: int = 10, *, quiet: bool = False) -> dict:
             if not quiet:
                 _print_briefing(text)
                 _print_token_usage(run_input, run_output)
-            run_cost = (run_input / 1_000_000) * 3.00 + (run_output / 1_000_000) * 15.00
+            run_cost = (run_input / 1_000_000) * _COST_PER_M_IN + (run_output / 1_000_000) * _COST_PER_M_OUT
             return {
                 "briefing": text.strip(),
                 "tool_calls": all_tool_calls,
@@ -414,7 +418,7 @@ def run_gridwatch(max_steps: int = 10, *, quiet: bool = False) -> dict:
                 "run_cost_usd": round(run_cost, 4),
             }
 
-    run_cost = (run_input / 1_000_000) * 3.00 + (run_output / 1_000_000) * 15.00
+    run_cost = (run_input / 1_000_000) * _COST_PER_M_IN + (run_output / 1_000_000) * _COST_PER_M_OUT
     return {
         "briefing": "",
         "tool_calls": all_tool_calls,

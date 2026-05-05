@@ -18,10 +18,10 @@ export function NewsModule({ news }) {
       <h2 className="module__title">Headlines</h2>
       {items.length ? (
         <ul className="news-list">
-          {items.map((n, i) => {
+          {items.map((n) => {
             const tag = impactTag(n.headline)
             return (
-              <li key={i} className="news-item">
+              <li key={n.source + n.headline} className="news-item">
                 <span className={`impact impact--${tag.toLowerCase()}`}>{tag}</span>
                 <div className="news-body">
                   <div className="news-source">{n.source}</div>
