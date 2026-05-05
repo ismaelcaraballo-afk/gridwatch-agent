@@ -5,12 +5,13 @@ from __future__ import annotations
 import os
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 from agent import run_gridwatch
 

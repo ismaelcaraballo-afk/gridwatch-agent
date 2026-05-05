@@ -3,6 +3,8 @@ import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+
 import anthropic
 from dotenv import load_dotenv
 from rich.console import Console
@@ -12,7 +14,8 @@ from rich import box
 
 console = Console()
 
-load_dotenv()
+_PROJECT_ROOT = Path(__file__).resolve().parent
+load_dotenv(_PROJECT_ROOT / ".env")
 
 from prompts import SYSTEM_PROMPT
 
@@ -50,7 +53,12 @@ else:
 
 from tools.alert import send_alert
 
-ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+if not ANTHROPIC_API_KEY:
+    raise RuntimeError(
+        "ANTHROPIC_API_KEY is missing. Add it to "
+        f"{_PROJECT_ROOT / '.env'} (see README) or export it in your shell."
+    )
 MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 MAX_TOOL_WORKERS = 12
 
