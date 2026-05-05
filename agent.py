@@ -285,10 +285,19 @@ def _print_briefing(content: str):
 
 # ── Agent loop ─────────────────────────────────────────────────────────────────
 
-def run_gridwatch(max_steps: int = 10):
+def run_gridwatch(max_steps: int = 10, *, quiet: bool = False) -> dict:
+    """Run one GridWatch agent cycle.
+
+    Returns a dict: ``briefing`` (final text or empty), ``tool_calls`` (chronological
+    ``name``/``result`` records), and ``error`` (API / max-steps message or None).
+    When ``quiet`` is True, Rich console output is suppressed (for HTTP wrappers).
+    """
     global _session_input, _session_output
 
-    _print_banner()
+    all_tool_calls: list[dict] = []
+
+    if not quiet:
+        _print_banner()
 
     trigger_time = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     messages = [
@@ -304,7 +313,8 @@ def run_gridwatch(max_steps: int = 10):
 
     while step < max_steps:
         step += 1
-        console.print(f"[dim][step {step}] thinking...[/dim]")
+        if not quiet:
+            console.print(f"[dim][step {step}] thinking...[/dim]")
 
         try:
             response = client.messages.create(
@@ -315,8 +325,13 @@ def run_gridwatch(max_steps: int = 10):
                 tools=TOOL_SCHEMAS,
             )
         except anthropic.APIError as e:
-            console.print(f"[red]✗ API error: {e}[/red]")
-            return "Agent stopped — API error."
+            if not quiet:
+                console.print(f"[red]✗ API error: {e}[/red]")
+            return {
+                "briefing": "",
+                "tool_calls": all_tool_calls,
+                "error": f"Agent stopped — API error: {e}",
+            }
 
         # Track tokens
         run_input       += response.usage.input_tokens
@@ -333,19 +348,23 @@ def run_gridwatch(max_steps: int = 10):
 
             for b in tool_blocks:
                 if b.name not in TOOLS:
-                    console.print(f"[red]✗ Unknown tool: {b.name}[/red]")
+                    if not quiet:
+                        console.print(f"[red]✗ Unknown tool: {b.name}[/red]")
 
             tool_results = []
             results      = {}
-            workers      = min(len(valid), MAX_TOOL_WORKERS)
+            # Avoid max_workers=0 when the model emits only unknown tool names.
+            workers      = max(1, min(len(valid), MAX_TOOL_WORKERS))
             with ThreadPoolExecutor(max_workers=workers) as pool:
                 futures = {pool.submit(_execute_tool, b): b for b in valid}
                 for future in as_completed(futures):
                     call_id, result, fn_name, elapsed = future.result()
                     results[call_id] = result
                     tool_results.append((fn_name, result, elapsed))
+                    all_tool_calls.append({"name": fn_name, "result": str(result)})
 
-            _print_tool_table(tool_results)
+            if not quiet:
+                _print_tool_table(tool_results)
 
             # Anthropic tool_result format
             messages.append({
@@ -364,11 +383,20 @@ def run_gridwatch(max_steps: int = 10):
             text = " ".join(
                 b.text for b in response.content if hasattr(b, "text")
             )
-            _print_briefing(text)
-            _print_token_usage(run_input, run_output)
-            return text
+            if not quiet:
+                _print_briefing(text)
+                _print_token_usage(run_input, run_output)
+            return {
+                "briefing": text.strip(),
+                "tool_calls": all_tool_calls,
+                "error": None,
+            }
 
-    return "Max steps reached."
+    return {
+        "briefing": "",
+        "tool_calls": all_tool_calls,
+        "error": "Max steps reached.",
+    }
 
 
 if __name__ == "__main__":
