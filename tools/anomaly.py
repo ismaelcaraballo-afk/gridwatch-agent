@@ -1,8 +1,10 @@
 import json
 import math
+import os
+import tempfile
 from pathlib import Path
 
-HISTORY_FILE = Path(__file__).parent.parent / ".demand_history.json"
+HISTORY_FILE = Path(tempfile.gettempdir()) / f"gridwatch_demand_{os.getuid()}.json"
 WINDOW_SIZE = 24
 
 # NYISO seasonal baselines — used when rolling window has fewer than 3 readings
@@ -27,6 +29,7 @@ def _load_history() -> list:
 def _save_history(history: list) -> None:
     try:
         HISTORY_FILE.write_text(json.dumps(history[-WINDOW_SIZE:]))
+        HISTORY_FILE.chmod(0o600)
     except Exception:
         pass
 
@@ -35,7 +38,7 @@ def _z_score(value: float, history: list) -> float:
     if len(history) < 3:
         return (value - DEMAND_BASELINE_MW) / DEMAND_STDEV_MW
     mean = sum(history) / len(history)
-    variance = sum((x - mean) ** 2 for x in history) / len(history)
+    variance = sum((x - mean) ** 2 for x in history) / (len(history) - 1)
     std = math.sqrt(variance) if variance > 0 else 1.0
     return (value - mean) / std
 
