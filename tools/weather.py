@@ -14,13 +14,16 @@ HEADERS = {"User-Agent": "gridwatch-agent/1.0 (energy ops briefing tool)"}
 
 def get_weather_alerts() -> str:
     """Get active NWS severe weather alerts for the NYC area."""
-    resp = get_with_backoff(
-        f"{NOAA_BASE}/alerts/active",
-        params={"point": f"{LAT},{LON}"},
-        headers=HEADERS,
-        timeout=30,
-    )
-    features = resp.json().get("features", [])
+    try:
+        resp = get_with_backoff(
+            f"{NOAA_BASE}/alerts/active",
+            params={"point": f"{LAT},{LON}"},
+            headers=HEADERS,
+            timeout=30,
+        )
+        features = resp.json().get("features", [])
+    except Exception:
+        return f"Weather alerts unavailable for {LOCATION_LABEL}."
 
     if not features:
         return f"Weather alerts — {LOCATION_LABEL}:\n  No active alerts."
@@ -41,33 +44,41 @@ def get_weather_alerts() -> str:
 
 
 def get_weather_forecast() -> str:
-    """Get the next 12-hour hourly weather forecast for NYC from NOAA."""
-    points_resp = get_with_backoff(
-        f"{NOAA_BASE}/points/{LAT},{LON}",
-        headers=HEADERS,
-        timeout=30,
-    )
-    forecast_hourly_url = points_resp.json()["properties"]["forecastHourly"]
+    """Get the next 48-hour hourly weather forecast for NYC from NOAA."""
+    try:
+        points_resp = get_with_backoff(
+            f"{NOAA_BASE}/points/{LAT},{LON}",
+            headers=HEADERS,
+            timeout=30,
+        )
+        forecast_hourly_url = points_resp.json().get("properties", {}).get("forecastHourly")
+        if not forecast_hourly_url:
+            return f"Weather forecast unavailable for {LOCATION_LABEL}."
+        if not forecast_hourly_url.startswith("https://api.weather.gov/"):
+            return f"Weather forecast unavailable for {LOCATION_LABEL}."
 
-    forecast_resp = get_with_backoff(
-        forecast_hourly_url,
-        headers=HEADERS,
-        timeout=30,
-    )
-    periods = forecast_resp.json()["properties"]["periods"][:48]
+        forecast_resp = get_with_backoff(
+            forecast_hourly_url,
+            headers=HEADERS,
+            timeout=30,
+        )
+        periods = forecast_resp.json().get("properties", {}).get("periods", [])[:48]
+        if not periods:
+            return f"Weather forecast unavailable for {LOCATION_LABEL}."
 
-    lines = [f"48-hour forecast — {LOCATION_LABEL}:"]
-    for period in periods:
-        name = period.get("name", "")
-        temp = period.get("temperature", "?")
-        unit = period.get("temperatureUnit", "F")
-        wind_speed = period.get("windSpeed", "")
-        wind_dir = period.get("windDirection", "")
-        short = period.get("shortForecast", "")
-        start = period.get("startTime", "")[:16].replace("T", " ")
-        lines.append(f"  {start}  {temp}°{unit}  Wind: {wind_speed} {wind_dir}  {short}")
+        lines = [f"48-hour forecast — {LOCATION_LABEL}:"]
+        for period in periods:
+            temp = period.get("temperature", "?")
+            unit = period.get("temperatureUnit", "F")
+            wind_speed = period.get("windSpeed", "")
+            wind_dir = period.get("windDirection", "")
+            short = period.get("shortForecast", "")
+            start = period.get("startTime", "")[:16].replace("T", " ")
+            lines.append(f"  {start}  {temp}°{unit}  Wind: {wind_speed} {wind_dir}  {short}")
 
-    return "\n".join(lines)
+        return "\n".join(lines)
+    except Exception:
+        return f"Weather forecast unavailable for {LOCATION_LABEL}."
 
 
 if __name__ == "__main__":

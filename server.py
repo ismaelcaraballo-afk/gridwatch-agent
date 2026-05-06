@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
@@ -331,7 +331,7 @@ _ALLOWED_ORIGINS = {
 
 @app.after_request
 def add_cors(resp):
-    origin = resp.request.environ.get("HTTP_ORIGIN", "")
+    origin = request.environ.get("HTTP_ORIGIN", "")
     if origin in _ALLOWED_ORIGINS:
         resp.headers["Access-Control-Allow-Origin"] = origin
     return resp
