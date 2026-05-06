@@ -323,10 +323,22 @@ def briefing():
     return jsonify(payload), status
 
 
+_BRIEFING_TOKEN = os.environ.get("BRIEFING_TOKEN", "").strip()
+
 _ALLOWED_ORIGINS = {
     "http://localhost:5173",  # Vite dev
     "http://localhost:3000",  # alt dev port
 }
+
+
+@app.before_request
+def require_token():
+    if request.path.startswith("/briefing"):
+        if not _BRIEFING_TOKEN:
+            return jsonify({"error": "server misconfigured — BRIEFING_TOKEN not set"}), 500
+        auth = request.headers.get("Authorization", "")
+        if auth != f"Bearer {_BRIEFING_TOKEN}":
+            return jsonify({"error": "unauthorized"}), 401
 
 
 @app.after_request
