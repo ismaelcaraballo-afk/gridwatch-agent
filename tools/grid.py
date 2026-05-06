@@ -110,7 +110,7 @@ def get_generation_mix() -> str:
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(override=True)
     print(get_grid_demand())
     print()
     print(get_generation_mix())

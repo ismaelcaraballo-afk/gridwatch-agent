@@ -15,7 +15,7 @@ from rich import box
 console = Console()
 
 _PROJECT_ROOT = Path(__file__).resolve().parent
-load_dotenv(_PROJECT_ROOT / ".env")
+load_dotenv(_PROJECT_ROOT / ".env", override=True)
 
 from prompts import SYSTEM_PROMPT
 

@@ -1,0 +1,239 @@
+/* Staggered / entrance animations — active when .briefing--animated is on root */
+
+.briefing:not(.briefing--animated) .risk-factor__fill {
+  width: 0 !important;
+}
+
+.briefing--animated .risk-factor__fill {
+  width: var(--fill-pct, 0%);
+  transition: width 1.05s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.briefing--animated .risk-factors .risk-factor:nth-child(1) .risk-factor__fill {
+  transition-delay: 80ms;
+}
+
+.briefing--animated .risk-factors .risk-factor:nth-child(2) .risk-factor__fill {
+  transition-delay: 140ms;
+}
+
+.briefing--animated .risk-factors .risk-factor:nth-child(3) .risk-factor__fill {
+  transition-delay: 200ms;
+}
+
+.briefing--animated .risk-factors .risk-factor:nth-child(4) .risk-factor__fill {
+  transition-delay: 260ms;
+}
+
+.briefing--animated .risk-factors .risk-factor:nth-child(5) .risk-factor__fill {
+  transition-delay: 320ms;
+}
+
+.briefing:not(.briefing--animated) .gen-vbars__bar {
+  height: 0 !important;
+}
+
+.briefing--animated .gen-vbars__bar {
+  height: var(--bar-height-pct, 0%);
+  transition:
+    height 1.1s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.5s ease;
+}
+
+.briefing--animated .gen-vbars__col:nth-child(1) .gen-vbars__bar {
+  transition-delay: 60ms;
+}
+
+.briefing--animated .gen-vbars__col:nth-child(2) .gen-vbars__bar {
+  transition-delay: 120ms;
+}
+
+.briefing--animated .gen-vbars__col:nth-child(3) .gen-vbars__bar {
+  transition-delay: 180ms;
+}
+
+.briefing--animated .gen-vbars__col:nth-child(4) .gen-vbars__bar {
+  transition-delay: 240ms;
+}
+
+.briefing--animated .gen-vbars__col:nth-child(5) .gen-vbars__bar {
+  transition-delay: 300ms;
+}
+
+.briefing:not(.briefing--animated) .load-bar__fill {
+  width: 0 !important;
+}
+
+.briefing--animated .load-bar__fill {
+  width: var(--load-pct, 0%);
+  transition: width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition-delay: 120ms;
+}
+
+.briefing:not(.briefing--animated) .renew-row__fill {
+  width: 0 !important;
+}
+
+.briefing--animated .renew-row__fill {
+  width: var(--renew-pct, 0%);
+  transition: width 1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.briefing--animated .weather-col--renew .renew-row:nth-child(2) .renew-row__fill {
+  transition-delay: 90ms;
+}
+
+.briefing--animated .weather-col--renew .renew-row:nth-child(3) .renew-row__fill {
+  transition-delay: 180ms;
+}
+
+.briefing--animated .weather-col--renew .renew-row:nth-child(4) .renew-row__fill {
+  transition-delay: 270ms;
+}
+
+.briefing:not(.briefing--animated) .weather-bars__bar {
+  height: 0 !important;
+  opacity: 0;
+}
+
+.briefing--animated .weather-bars__bar {
+  opacity: 1;
+  transition:
+    height 0.85s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.45s ease;
+}
+
+.briefing--animated .weather-bars__cell:nth-child(1) .weather-bars__bar {
+  transition-delay: 40ms;
+}
+
+.briefing--animated .weather-bars__cell:nth-child(2) .weather-bars__bar {
+  transition-delay: 70ms;
+}
+
+.briefing--animated .weather-bars__cell:nth-child(3) .weather-bars__bar {
+  transition-delay: 100ms;
+}
+
+.briefing--animated .weather-bars__cell:nth-child(4) .weather-bars__bar {
+  transition-delay: 130ms;
+}
+
+.briefing--animated .weather-bars__cell:nth-child(5) .weather-bars__bar {
+  transition-delay: 160ms;
+}
+
+.briefing--animated .weather-bars__cell:nth-child(6) .weather-bars__bar {
+  transition-delay: 190ms;
+}
+
+.briefing--animated .weather-bars__cell:nth-child(7) .weather-bars__bar {
+  transition-delay: 220ms;
+}
+
+.briefing--animated .weather-bars__cell:nth-child(8) .weather-bars__bar {
+  transition-delay: 250ms;
+}
+
+.briefing--animated .weather-bars__cell:nth-child(9) .weather-bars__bar {
+  transition-delay: 280ms;
+}
+
+.briefing--animated .weather-bars__cell:nth-child(10) .weather-bars__bar {
+  transition-delay: 310ms;
+}
+
+.briefing--animated .weather-bars__cell:nth-child(11) .weather-bars__bar {
+  transition-delay: 340ms;
+}
+
+.briefing--animated .weather-bars__cell:nth-child(12) .weather-bars__bar {
+  transition-delay: 370ms;
+}
+
+.briefing--animated .weather-bars__cell:nth-child(13) .weather-bars__bar {
+  transition-delay: 400ms;
+}
+
+/* Heatmap cells */
+.heatmap__cell {
+  opacity: 0;
+  transform: scale(0.88);
+}
+
+.briefing--animated .heatmap__cell {
+  opacity: 1;
+  transform: scale(1);
+  transition:
+    opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: calc(var(--hm-delay, 0) * 35ms);
+}
+
+/* News rows */
+.news-feed__row {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.briefing--animated .news-feed__row {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 0.45s ease,
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: calc(var(--news-delay, 0) * 85ms);
+}
+
+/* Sparkline draw */
+.market-spark__path {
+  stroke-dasharray: 280;
+  stroke-dashoffset: 280;
+}
+
+.briefing--animated .market-spark__path {
+  animation: briefing-draw-spark 1.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: 0.25s;
+}
+
+@keyframes briefing-draw-spark {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.grid-chart__curve {
+  stroke-dasharray: 420;
+  stroke-dashoffset: 420;
+}
+
+.briefing--animated .grid-chart__curve--demand {
+  animation: briefing-draw-curve 1.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: 0.15s;
+}
+
+.briefing--animated .grid-chart__curve--supply {
+  animation: briefing-draw-curve 1.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: 0.35s;
+}
+
+@keyframes briefing-draw-curve {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Mini sparkline subtle pulse */
+.briefing--animated .grid-mini-chart polyline {
+  animation: briefing-mini-spark 2.2s ease-in-out infinite alternate;
+  animation-delay: 0.5s;
+}
+
+@keyframes briefing-mini-spark {
+  from {
+    opacity: 0.75;
+  }
+  to {
+    opacity: 1;
+  }
+}

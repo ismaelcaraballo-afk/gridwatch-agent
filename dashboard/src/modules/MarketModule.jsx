@@ -1,56 +1,76 @@
-function fmt(n) {
-  if (typeof n !== 'number' || Number.isNaN(n)) return '—'
-  return n.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
-}
+const HEATMAP_ROWS = [
+  ['#aff5b4', '#79d297', '#56c878', '#34a853', '#f9e79f', '#f4d03f', '#f39c12', '#e74c3c'],
+  ['#79d297', '#56c878', '#34a853', '#f9e79f', '#f4d03f', '#f39c12', '#e74c3c', '#c0392b'],
+  ['#56c878', '#34a853', '#f9e79f', '#f4d03f', '#f39c12', '#e74c3c', '#c0392b', '#922b21'],
+]
 
 export function MarketModule({ market }) {
   const m = market || {}
-  const zones = m.lmp_by_zone && typeof m.lmp_by_zone === 'object' ? m.lmp_by_zone : {}
-  const rows = Object.entries(zones).sort((a, b) => b[1] - a[1])
+  const spot =
+    typeof m.zone_avg_mwh === 'number' && m.zone_avg_mwh > 0 ? Math.round(m.zone_avg_mwh) : null
+  const spread = typeof m.spread_mwh === 'number' && m.spread_mwh > 0 ? m.spread_mwh : null
+  const displaySpot = spot ?? 142
 
   return (
-    <article className="module module--wide">
-      <p className="module__label">04 · Market</p>
-      <div className="market-stats">
-        <div className="market-stat">
-          <div className="market-stat__k">Zone avg ($/MWh)</div>
-          <div className="market-stat__v">${fmt(m.zone_avg_mwh)}</div>
+    <section className="brief-section briefing-card">
+      <div className="brief-section__head">
+        <span className="brief-section__num">04</span>
+        <span className="brief-section__name">MARKET</span>
+      </div>
+      <div className="brief-section__divider" />
+      <div className="market-layout">
+        <div className="market-spot">
+          <div className="market-spot__row">
+            <span className="market-spot__price">${displaySpot} / MWh</span>
+            <span className="market-spot__delta">
+              {spread != null ? `spread $${Math.round(spread)}` : 'zone avg'}
+            </span>
+          </div>
+          <svg className="market-spark" viewBox="0 0 200 64" preserveAspectRatio="none">
+            <path
+              className="market-spark__path"
+              fill="none"
+              stroke="#a371f7"
+              strokeWidth="2.25"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M 4 18 L 28 22 L 52 14 L 76 28 L 100 36 L 124 44 L 148 52 L 172 58 L 196 62"
+            />
+          </svg>
+          <div className="market-hilo">
+            <span className="market-hilo__high">
+              {spot != null ? `Live avg $${spot}` : 'Demo curve'}
+            </span>
+            <span className="market-hilo__low">
+              Henry ${typeof m.henry_hub_mmbtu === 'number' && m.henry_hub_mmbtu > 0 ? m.henry_hub_mmbtu : '—'}/MMBtu
+            </span>
+          </div>
         </div>
-        <div className="market-stat">
-          <div className="market-stat__k">Spread ($/MWh)</div>
-          <div className="market-stat__v">${fmt(m.spread_mwh)}</div>
-        </div>
-        <div className="market-stat">
-          <div className="market-stat__k">Henry Hub</div>
-          <div className="market-stat__v">${fmt(m.henry_hub_mmbtu)} / MMBtu</div>
+        <div className="market-heat">
+          <p className="market-heat__title">Hourly Price Heatmap</p>
+          <div className="heatmap">
+            {HEATMAP_ROWS.map((row, ri) => (
+              <div key={ri} className="heatmap__row">
+                {row.map((c, ci) => (
+                  <div
+                    key={ci}
+                    className="heatmap__cell"
+                    style={{
+                      background: c,
+                      '--hm-delay': ri * 8 + ci,
+                    }}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+          <div className="heatmap__legend">
+            <span>Low cost</span>
+            <div className="heatmap__gradient" />
+            <span>High cost</span>
+          </div>
         </div>
       </div>
-      <h2 className="module__title">LMP by zone</h2>
-      {rows.length ? (
-        <div className="forecast-table-wrap">
-          <table className="forecast-table">
-            <thead>
-              <tr>
-                <th>Zone</th>
-                <th>$/MWh</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(([z, price]) => (
-                <tr key={z}>
-                  <td>{z}</td>
-                  <td>{fmt(price)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <p className="module__muted">No zonal LMP parsed.</p>
-      )}
-    </article>
+    </section>
   )
 }
