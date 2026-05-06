@@ -39,14 +39,23 @@ pip install -r requirements.txt
 ```
 
 **4. Create a `.env` file in the root**
-```
-OPENROUTER_API_KEY=your_openrouter_key
-EIA_API_KEY=your_eia_key
+```bash
+cp .env.example .env
+# then fill in the values Greg provided
 ```
 
-- **OpenRouter key**: [openrouter.ai](https://openrouter.ai) — free account
-- **EIA key**: [eia.gov/opendata/register.php](https://www.eia.gov/opendata/register.php) — free, instant approval
-- **USE_STUBS**: set to `true` to run with fake data (no API keys needed — useful for testing the agent loop)
+```
+ANTHROPIC_API_KEY=sk-ant-...        # primary LLM — Greg provides
+OPENROUTER_API_KEY=sk-or-v1-...     # alternate LLM backend — Greg provides
+EIA_API_KEY=...                     # grid data — Greg provides
+NTFY_TOPIC=your-private-topic       # your ntfy.sh alert channel (required)
+DR_TOPIC=your-private-dr-topic      # demand response channel (required)
+USE_OPENROUTER=false                # set true to route through OpenRouter
+USE_STUBS=false                     # set true to run with fake data, no keys needed
+```
+
+- **USE_STUBS=true**: runs with fake data — no API keys required, good for testing the agent loop
+- **NTFY_TOPIC / DR_TOPIC**: pick any private string (e.g. `gridwatch-myname-2026`). These are push notification channels — don't use an obvious name.
 
 ## Branching strategy
 

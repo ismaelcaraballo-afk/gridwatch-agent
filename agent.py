@@ -54,13 +54,8 @@ else:
 from tools.alert import send_alert
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-if not ANTHROPIC_API_KEY:
-    raise RuntimeError(
-        "ANTHROPIC_API_KEY is missing. Add it to "
-        f"{_PROJECT_ROOT / '.env'} (see README) or export it in your shell."
-    )
 MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
-MAX_TOOL_WORKERS = 12
+MAX_TOOL_WORKERS = 4
 
 _openrouter_key = os.environ.get("OPENROUTER_API_KEY")
 if _openrouter_key and os.environ.get("USE_OPENROUTER", "false").lower() == "true":
@@ -70,6 +65,11 @@ if _openrouter_key and os.environ.get("USE_OPENROUTER", "false").lower() == "tru
         default_headers={"HTTP-Referer": "gridwatch-agent"},
     )
 else:
+    if not ANTHROPIC_API_KEY:
+        raise RuntimeError(
+            "ANTHROPIC_API_KEY is missing. Add it to "
+            f"{_PROJECT_ROOT / '.env'} (see README) or export it in your shell."
+        )
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
 # ── Session token tracking ─────────────────────────────────────────────────────
@@ -381,7 +381,7 @@ def run_gridwatch(max_steps: int = 10, *, quiet: bool = False) -> dict:
             with ThreadPoolExecutor(max_workers=workers) as pool:
                 futures = {pool.submit(_execute_tool, b): b for b in valid}
                 for future in as_completed(futures):
-                    call_id, result, fn_name, elapsed = future.result()
+                    call_id, result, fn_name, elapsed = future.result(timeout=45)
                     results[call_id] = result
                     tool_results.append((fn_name, result, elapsed))
                     all_tool_calls.append({"name": fn_name, "result": str(result)})

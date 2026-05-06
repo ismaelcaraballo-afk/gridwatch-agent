@@ -4,7 +4,9 @@ import tempfile
 import time
 import requests
 
-_ntfy_topic = os.environ.get("NTFY_TOPIC", "gridwatch-ismael")
+_ntfy_topic = os.environ.get("NTFY_TOPIC", "").strip()
+if not _ntfy_topic:
+    raise RuntimeError("NTFY_TOPIC env var is required — set it in .env")
 NTFY_URL    = f"https://ntfy.sh/{_ntfy_topic}"
 STATE_FILE  = os.path.join(tempfile.gettempdir(), f"gridwatch_alert_{os.getuid()}.json")
 
@@ -96,7 +98,7 @@ def send_alert(risk_level: str, summary: str) -> str:
         return f"Alert delivery failed (HTTP {resp.status_code}): {resp.text[:120]}"
 
     _save_state(level)
-    return f"Alert sent → ntfy.sh/gridwatch-ismael | priority: {priority} | {level}"
+    return f"Alert sent → ntfy.sh/{_ntfy_topic} | priority: {priority} | {level}"
 
 
 if __name__ == "__main__":

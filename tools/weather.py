@@ -54,6 +54,8 @@ def get_weather_forecast() -> str:
         forecast_hourly_url = points_resp.json().get("properties", {}).get("forecastHourly")
         if not forecast_hourly_url:
             return f"Weather forecast unavailable for {LOCATION_LABEL}."
+        if not forecast_hourly_url.startswith("https://api.weather.gov/"):
+            return f"Weather forecast unavailable for {LOCATION_LABEL}."
 
         forecast_resp = get_with_backoff(
             forecast_hourly_url,

@@ -1,13 +1,16 @@
 import json
 import os
+import tempfile
 import time
 import requests
 
-DR_TOPIC    = os.environ.get("DR_TOPIC", "gridwatch-dr")
+DR_TOPIC = os.environ.get("DR_TOPIC", "").strip()
+if not DR_TOPIC:
+    raise RuntimeError("DR_TOPIC env var is required — set it in .env")
 DR_NTFY_URL = f"https://ntfy.sh/{DR_TOPIC}"
 
 DR_THRESHOLD_MW = 18_000
-DR_STATE_FILE   = os.path.join(os.sep + "tmp", f"gridwatch_dr_{os.getuid()}.json")
+DR_STATE_FILE   = os.path.join(tempfile.gettempdir(), f"gridwatch_dr_{os.getuid()}.json")
 DR_COOLDOWN     = 2 * 60 * 60
 
 
