@@ -54,11 +54,6 @@ else:
 from tools.alert import send_alert
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-if not ANTHROPIC_API_KEY:
-    raise RuntimeError(
-        "ANTHROPIC_API_KEY is missing. Add it to "
-        f"{_PROJECT_ROOT / '.env'} (see README) or export it in your shell."
-    )
 MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 MAX_TOOL_WORKERS = 12
 
@@ -70,6 +65,11 @@ if _openrouter_key and os.environ.get("USE_OPENROUTER", "false").lower() == "tru
         default_headers={"HTTP-Referer": "gridwatch-agent"},
     )
 else:
+    if not ANTHROPIC_API_KEY:
+        raise RuntimeError(
+            "ANTHROPIC_API_KEY is missing. Add it to "
+            f"{_PROJECT_ROOT / '.env'} (see README) or export it in your shell."
+        )
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
 # ── Session token tracking ─────────────────────────────────────────────────────
