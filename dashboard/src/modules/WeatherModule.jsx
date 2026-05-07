@@ -9,6 +9,65 @@ function hourlyFromForecast(forecast) {
   return HOURLY_FALLBACK
 }
 
+function lerp(a, b, u) {
+  return a + (b - a) * u
+}
+
+function clamp01(x) {
+  return Math.min(1, Math.max(0, x))
+}
+
+function hsl(h, s, l) {
+  return `hsl(${Math.round(h)}, ${Math.round(s)}%, ${Math.round(l)}%)`
+}
+
+/** Lime cap for cold hours (top of bar); blends toward yellow-green by 80°F */
+const LIME_TOP = { h: 84, s: 82, l: 56 }
+/** Top color just below the ≥80°F thermal strip */
+const PRE_WARM_TOP = { h: 98, s: 72, l: 46 }
+
+/**
+ * Vertical ramps (bottom → top). No washed-out greens:
+ * - &lt;80°F: deep green bottom; top is lime up to 60°F, then blends toward yellow-green by 80°
+ * - ≥80°F: green (bottom) → yellow (mid) → orange (top); orange ramps from 80→100°F+
+ */
+function gradientFromTempF(tempF, temps) {
+  const t = Number(tempF)
+  if (!temps.length) {
+    return `linear-gradient(to top, ${hsl(142, 54, 30)} 0%, ${hsl(LIME_TOP.h, LIME_TOP.s, LIME_TOP.l)} 100%)`
+  }
+
+  if (t >= 80) {
+    const u = clamp01((t - 80) / 20)
+    const bottom = hsl(138, 54, 38)
+    const mid = hsl(lerp(54, 48, u), lerp(82, 90, u), lerp(53, 53, u))
+    const top = hsl(lerp(44, 28, u), lerp(85, 92, u), lerp(52, 53, u))
+    return `linear-gradient(to top, ${bottom} 0%, ${mid} 47%, ${top} 100%)`
+  }
+
+  const coldAnchor = Math.min(...temps)
+  const span = Math.max(18, 80 - coldAnchor)
+  const pos = clamp01((t - coldAnchor) / span)
+  const bottomL = lerp(29, 34, pos)
+  const bottom = hsl(lerp(143, 139, pos), lerp(54, 56, pos), bottomL)
+
+  let topH
+  let topS
+  let topL
+  if (t <= 60) {
+    topH = LIME_TOP.h
+    topS = LIME_TOP.s
+    topL = LIME_TOP.l
+  } else {
+    const v = (t - 60) / 20
+    topH = lerp(LIME_TOP.h, PRE_WARM_TOP.h, v)
+    topS = lerp(LIME_TOP.s, PRE_WARM_TOP.s, v)
+    topL = lerp(LIME_TOP.l, PRE_WARM_TOP.l, v)
+  }
+  const top = hsl(topH, topS, topL)
+  return `linear-gradient(to top, ${bottom} 0%, ${top} 100%)`
+}
+
 function WeatherBars({ temps }) {
   const max = Math.max(...temps, 1)
   return (
@@ -20,7 +79,7 @@ function WeatherBars({ temps }) {
             style={{
               height: `${(h / max) * 100}%`,
               opacity: 0.55 + (h / max) * 0.45,
-              background: `hsl(${212 - i * 9}, 85%, ${52 - i * 1.2}%)`,
+              background: gradientFromTempF(h, temps),
             }}
           />
         </div>

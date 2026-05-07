@@ -227,7 +227,46 @@ export function GridModule({ grid }) {
       </div>
       <div className="grid-chart-wrap">
         <span className="grid-chart__caption">{chart.caption}</span>
-        <svg className="grid-chart" viewBox="0 0 384 120" preserveAspectRatio="xMidYMid meet">
+        <svg
+          className="grid-chart"
+          viewBox="0 0 384 120"
+          preserveAspectRatio="xMidYMid meet"
+          overflow="visible"
+        >
+          <defs>
+            <filter
+              id="gridSmokeBloom"
+              filterUnits="userSpaceOnUse"
+              x="-200"
+              y="-200"
+              width="784"
+              height="520"
+              colorInterpolationFilters="sRGB"
+            >
+              <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" edgeMode="duplicate" result="s1" />
+              <feGaussianBlur in="s1" stdDeviation="5.2" edgeMode="duplicate" result="s2" />
+              <feMerge>
+                <feMergeNode in="s2" />
+                <feMergeNode in="s1" />
+              </feMerge>
+            </filter>
+            <filter
+              id="gridSmokeHaze"
+              filterUnits="userSpaceOnUse"
+              x="-200"
+              y="-200"
+              width="784"
+              height="520"
+              colorInterpolationFilters="sRGB"
+            >
+              <feGaussianBlur in="SourceGraphic" stdDeviation="6.5" edgeMode="duplicate" result="h1" />
+              <feGaussianBlur in="h1" stdDeviation="4.2" edgeMode="duplicate" result="h2" />
+              <feMerge>
+                <feMergeNode in="h2" />
+                <feMergeNode in="h1" />
+              </feMerge>
+            </filter>
+          </defs>
           <text x="8" y="112" className="grid-chart__axis">
             12am
           </text>
@@ -240,24 +279,44 @@ export function GridModule({ grid }) {
           <text x="376" y="112" className="grid-chart__axis" textAnchor="end">
             12am
           </text>
-          <path
-            className="grid-chart__curve grid-chart__curve--demand"
-            fill="none"
-            stroke="#58a6ff"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d={chart.demandPath}
-          />
-          <path
-            className="grid-chart__curve grid-chart__curve--supply"
-            fill="none"
-            stroke="#3fb950"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d={chart.supplyPath}
-          />
+          <g className="grid-chart__motion grid-chart__motion--demand">
+            <path
+              className="grid-chart__smoke grid-chart__smoke--demand grid-chart__smoke--haze"
+              fill="none"
+              filter="url(#gridSmokeHaze)"
+              d={chart.demandPath}
+            />
+            <path
+              className="grid-chart__smoke grid-chart__smoke--demand grid-chart__smoke--bloom"
+              fill="none"
+              filter="url(#gridSmokeBloom)"
+              d={chart.demandPath}
+            />
+            <path
+              className="grid-chart__curve grid-chart__curve--demand"
+              fill="none"
+              d={chart.demandPath}
+            />
+          </g>
+          <g className="grid-chart__motion grid-chart__motion--supply">
+            <path
+              className="grid-chart__smoke grid-chart__smoke--supply grid-chart__smoke--haze"
+              fill="none"
+              filter="url(#gridSmokeHaze)"
+              d={chart.supplyPath}
+            />
+            <path
+              className="grid-chart__smoke grid-chart__smoke--supply grid-chart__smoke--bloom"
+              fill="none"
+              filter="url(#gridSmokeBloom)"
+              d={chart.supplyPath}
+            />
+            <path
+              className="grid-chart__curve grid-chart__curve--supply"
+              fill="none"
+              d={chart.supplyPath}
+            />
+          </g>
           <rect
             x={chart.rect.x}
             y={chart.rect.y}
