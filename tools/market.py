@@ -241,7 +241,7 @@ def _fetch_dam_csv(yyyymmdd: str):
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(override=True)
     print(get_henry_hub_price())
     print()
     print(get_fleet_data())

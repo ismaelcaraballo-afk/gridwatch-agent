@@ -12,7 +12,7 @@ from typing import Any
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 
-load_dotenv(Path(__file__).resolve().parent / ".env")
+load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
 
 from agent import run_gridwatch
 
@@ -97,6 +97,21 @@ def _parse_forecast_peak(text: str) -> tuple[int, str]:
     if m2:
         return int(m2.group(1).replace(",", "")), ""
     return 0, ""
+
+
+def _parse_demand_forecast_profile(text: str, limit: int = 48) -> list[dict[str, Any]]:
+    """Hourly (or sub-hourly) MW rows from get_demand_forecast tool output."""
+    rows: list[dict[str, Any]] = []
+    for line in (text or "").splitlines():
+        s = line.strip()
+        m = re.match(r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})\s+([\d,]+)\s*MW\s*$", s, re.I)
+        if not m:
+            m = re.match(r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})\s+([\d,]+)\s*$", s)
+        if m:
+            rows.append({"time": m.group(1).strip(), "mw": int(m.group(2).replace(",", ""))})
+        if len(rows) >= limit:
+            break
+    return rows
 
 
 def _parse_weather_alert_objs(text: str) -> list[dict[str, str]]:
@@ -277,6 +292,7 @@ def build_dashboard_contract(agent_result: dict) -> dict[str, Any]:
             "renewable_pct": _renewable_pct(gen_mix),
             "forecast_peak_mw": peak_mw,
             "forecast_peak_time": peak_time or "",
+            "forecast_profile": _parse_demand_forecast_profile(forecast_txt),
         },
         "weather": {
             "alerts": _parse_weather_alert_objs(wx_a),
