@@ -1,7 +1,11 @@
 import os
+import time
 import requests
 
 from tools.http import get_with_backoff
+
+_cache: dict = {}
+_CACHE_TTL = 10 * 60  # 10 minutes — EIA updates hourly
 
 EIA_BASE = "https://api.eia.gov/v2/electricity/rto"
 
@@ -28,6 +32,8 @@ def _get_with_retry(url, params, retries=2, timeout=30) -> requests.Response:
 
 def get_grid_demand() -> str:
     """Get current real-time electricity demand for the NYISO grid region."""
+    if "demand" in _cache and time.time() - _cache["demand"]["ts"] < _CACHE_TTL:
+        return _cache["demand"]["data"]
     key = os.environ["EIA_API_KEY"]
     try:
         resp = _get_with_retry(
@@ -62,11 +68,15 @@ def get_grid_demand() -> str:
         direction = "above" if pct_diff >= 0 else "below"
         lines.append(f"  5-hour avg: {avg:,} MW ({abs(pct_diff):.1f}% {direction} recent avg)")
 
-    return "\n".join(lines)
+    result = "\n".join(lines)
+    _cache["demand"] = {"data": result, "ts": time.time()}
+    return result
 
 
 def get_generation_mix() -> str:
     """Get current electricity generation breakdown by fuel type for NYISO."""
+    if "genmix" in _cache and time.time() - _cache["genmix"]["ts"] < _CACHE_TTL:
+        return _cache["genmix"]["data"]
     key = os.environ["EIA_API_KEY"]
     try:
         resp = _get_with_retry(
@@ -105,7 +115,9 @@ def get_generation_mix() -> str:
         pct = (mwh / total) * 100
         lines.append(f"  {label}: {mwh:,} MWh ({pct:.1f}%)")
     lines.append(f"  → Clean total: {(clean/total)*100:.1f}% | Fossil total: {(fossil/total)*100:.1f}%")
-    return "\n".join(lines)
+    result = "\n".join(lines)
+    _cache["genmix"] = {"data": result, "ts": time.time()}
+    return result
 
 
 if __name__ == "__main__":

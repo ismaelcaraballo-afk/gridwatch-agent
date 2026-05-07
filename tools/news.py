@@ -1,6 +1,10 @@
+import time
 import defusedxml.ElementTree as ET
 
 from tools.http import get_with_backoff
+
+_cache = {"data": None, "ts": 0.0}
+_CACHE_TTL = 15 * 60  # 15 minutes — RSS feeds don't update by the minute
 
 RSS_FEEDS = [
     ("EIA Today in Energy", "https://www.eia.gov/rss/todayinenergy.xml"),
@@ -11,6 +15,9 @@ RSS_FEEDS = [
 
 def get_energy_news() -> str:
     """Get recent energy industry headlines from public RSS feeds."""
+    if _cache["data"] and time.time() - _cache["ts"] < _CACHE_TTL:
+        return _cache["data"]
+
     headlines = []
     for name, url in RSS_FEEDS:
         try:
@@ -28,7 +35,9 @@ def get_energy_news() -> str:
 
     if not headlines:
         return "No energy news headlines available at this time."
-    return "\n".join(headlines)
+    result = "\n".join(headlines)
+    _cache.update({"data": result, "ts": time.time()})
+    return result
 
 
 _SENTIMENT_KEYWORDS = {

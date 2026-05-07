@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -302,10 +303,22 @@ def build_dashboard_contract(agent_result: dict) -> dict[str, Any]:
     }
 
 
+_briefing_cache: dict = {"result": None, "ts": 0.0}
+_BRIEFING_TTL = 5 * 60  # 5 minutes
+
+
+def _get_cached_result() -> dict:
+    if _briefing_cache["result"] and time.time() - _briefing_cache["ts"] < _BRIEFING_TTL:
+        return _briefing_cache["result"]
+    result = run_gridwatch(quiet=True)
+    _briefing_cache.update({"result": result, "ts": time.time()})
+    return result
+
+
 @app.get("/briefing/raw")
 def briefing_raw():
     """Step 1 gate: run agent once, return only briefing text (+ error if any)."""
-    result = run_gridwatch(quiet=True)
+    result = _get_cached_result()
     payload = {
         "briefing": result.get("briefing") or "",
         "error": result.get("error"),
@@ -317,7 +330,7 @@ def briefing_raw():
 @app.get("/briefing")
 def briefing():
     """Step 2: full dashboard JSON contract."""
-    result = run_gridwatch(quiet=True)
+    result = _get_cached_result()
     payload = build_dashboard_contract(result)
     status = 200 if not result.get("error") else 503
     return jsonify(payload), status
