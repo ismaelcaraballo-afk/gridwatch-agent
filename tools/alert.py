@@ -4,10 +4,10 @@ import tempfile
 import time
 import requests
 
-_ntfy_topic = os.environ.get("NTFY_TOPIC", "").strip()
-if not _ntfy_topic:
+_ntfy_topic_raw = os.environ.get("NTFY_TOPIC", "").strip()
+if not _ntfy_topic_raw:
     raise RuntimeError("NTFY_TOPIC env var is required — set it in .env")
-NTFY_URL    = f"https://ntfy.sh/{_ntfy_topic}"
+NTFY_TOPICS = [t.strip() for t in _ntfy_topic_raw.split(",") if t.strip()]
 STATE_FILE  = os.path.join(tempfile.gettempdir(), f"gridwatch_alert_{os.getuid()}.json")
 
 PRIORITY = {
@@ -80,25 +80,35 @@ def send_alert(risk_level: str, summary: str) -> str:
 
     priority, tag = PRIORITY.get(level, ("default", "warning"))
 
-    try:
-        resp = requests.post(
-            NTFY_URL,
-            data=summary.encode("utf-8"),
-            headers={
-                "Title":    f"GridWatch -- {level} ALERT",
-                "Priority": priority,
-                "Tags":     f"electric_plug,{tag}",
-            },
-            timeout=10,
-        )
-    except requests.RequestException as e:
-        return f"Alert delivery failed (network error): {e}"
+    sent = []
+    failed = []
+    for topic in NTFY_TOPICS:
+        try:
+            resp = requests.post(
+                f"https://ntfy.sh/{topic}",
+                data=summary.encode("utf-8"),
+                headers={
+                    "Title":    f"GridWatch -- {level} ALERT",
+                    "Priority": priority,
+                    "Tags":     f"electric_plug,{tag}",
+                },
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                sent.append(topic)
+            else:
+                failed.append(f"{topic}(HTTP {resp.status_code})")
+        except requests.RequestException as e:
+            failed.append(f"{topic}({e})")
 
-    if resp.status_code != 200:
-        return f"Alert delivery failed (HTTP {resp.status_code}): {resp.text[:120]}"
+    if not sent:
+        return f"Alert delivery failed for all topics: {', '.join(failed)}"
 
     _save_state(level)
-    return f"Alert sent → ntfy.sh/{_ntfy_topic} | priority: {priority} | {level}"
+    result = f"Alert sent → {', '.join(f'ntfy.sh/{t}' for t in sent)} | priority: {priority} | {level}"
+    if failed:
+        result += f" | failed: {', '.join(failed)}"
+    return result
 
 
 if __name__ == "__main__":
